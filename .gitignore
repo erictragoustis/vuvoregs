@@ -176,3 +176,4 @@ cython_debug/
 #VSCode
 .vscode/
 *.code-workspace
+vuvoregs/vuvoregs.code-workspace
