@@ -175,4 +175,4 @@ cython_debug/
 
 #VSCode
 .vscode/
-.code-workspace
+*.code-workspace
