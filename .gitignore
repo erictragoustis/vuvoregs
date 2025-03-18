@@ -177,3 +177,6 @@ cython_debug/
 .vscode/
 *.code-workspace
 vuvoregs/vuvoregs.code-workspace
+
+# Exclude machine-specific vs code settings
+.vscode/settings.json

@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block title %}Register Athletes{% endblock %}
+
+{% block content %}
+<h2>Register for {{ package.name }}</h2>
+
+<form method="POST">
+    {% csrf_token %}
+    
+    <div id="athlete-forms">
+        <div class="athlete-form">
+            {% for field in forms.0 %}
+                <div class="mb-2">
+                    <label class="form-label">{{ field.label }}</label>
+                    {{ field }}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <button type="button" id="add-athlete" class="btn btn-primary mt-3">Add Another Athlete</button>
+    <p class="mt-3">Total Cost: <span id="total-cost">€{{ package.price }}</span></p>
+    <button type="submit" class="btn btn-success mt-3">Proceed to Payment</button>
+</form>
+
+<script>
+    document.getElementById('add-athlete').addEventListener('click', function () {
+        let container = document.getElementById('athlete-forms');
+        let newForm = container.children[0].cloneNode(true);
+        
+        newForm.querySelectorAll('input').forEach(input => input.value = '');
+        
+        container.appendChild(newForm);
+
+        let totalCost = parseFloat(document.getElementById('total-cost').innerText.replace('€', ''));
+        totalCost += parseFloat("{{ package.price }}");
+        document.getElementById('total-cost').innerText = "€" + totalCost.toFixed(2);
+    });
+</script>
+
+<a href="{% url 'package_selection' package.race.id %}" class="btn btn-secondary mt-3">Back</a>
+{% endblock %}

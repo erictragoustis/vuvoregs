@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Select a Package</h2>
+<ul>
+    {% for package in packages %}
+        <li><a href="{% url 'athlete_registration' package.id %}">{{ package.name }} - ${{ package.price }}</a></li>
+    {% endfor %}
+</ul>
+{% endblock %}
