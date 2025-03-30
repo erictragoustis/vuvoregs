@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block title %}Races for {{ event.name }}{% endblock %}
+
+{% block content %}
+    <h1>Races for {{ event.name }}</h1>
+    <ul class="list-group">
+    {% for race in races %}
+        <li class="list-group-item">
+            <a href="{% url 'registration' race.id %}">{{ race.race_type.name }} - {{ race.race_km }} KM</a>
+        </li>
+    {% endfor %}
+    </ul>
+{% endblock %}

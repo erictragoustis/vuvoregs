@@ -1,17 +1,13 @@
 {% extends 'base.html' %}
 
-{% block title %}Select a Package{% endblock %}
+{% block title %}Select Package{% endblock %}
 
 {% block content %}
-<h2>{{ race.race_type.name }} - {{ race.race_km }} KM</h2>
-<p>Select a package for this race:</p>
-<div class="list-group">
-    {% for package in packages %}
-        <a href="{% url 'athlete_registration' package.id %}" class="list-group-item list-group-item-action">
-            <strong>{{ package.name }}</strong> - {{ package.price }}€
-            <p>{{ package.description }}</p>
-        </a>
-    {% endfor %}
-</div>
-<a href="{% url 'race_selection' race.event.id %}" class="btn btn-secondary mt-3">Back</a>
+    <h1>Select a Package for {{ race.race_type.name }} - {{ race.race_km }} KM</h1>
+    <ul class="list-group">
+        {% for package in packages %}
+        <li class="list-group-item"><a href="{% url 'athlete_registration' package.id %}?race_id={{ race.id }}">{{ package.name }} - ${{ package.price }}</a></li>
+        {% endfor %}
+    </ul>
+    <a href="{% url 'race_selection' race.event.id %}" class="btn btn-secondary mt-3">Back to Races</a>
 {% endblock %}

@@ -3,13 +3,11 @@
 {% block title %}Payment{% endblock %}
 
 {% block content %}
-<h2>Complete Payment</h2>
-<p>Total Amount: <strong>€{{ registration.total_amount }}</strong></p>
+    <h1>Payment</h1>
+    <p>Total Amount: ${{ registration.total_amount }}</p>
 
-<form method="POST" action="{% url 'payment' registration.id %}">
-    {% csrf_token %}
-    <button type="submit" class="btn btn-success">Pay Now</button>
-</form>
-
-<a href="{% url 'event_selection' %}" class="btn btn-secondary mt-3">Cancel</a>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary">Pay Now</button>
+    </form>
 {% endblock %}

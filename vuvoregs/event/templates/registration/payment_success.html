@@ -5,5 +5,6 @@
 {% block content %}
 <h2>Payment Successful!</h2>
 <p>Thank you for your payment. Your registration has been completed.</p>
-<a href="{% url 'event_selection' %}" class="btn btn-primary">Go to Dashboard</a>
+<p>Your registration (ID: {{ registration.id }}) has been successfully processed.</p>
+<a href="{% url 'event_list' %}" class="btn btn-primary">Go to Dashboard</a>
 {% endblock %}

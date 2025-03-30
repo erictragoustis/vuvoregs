@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.conf.urls.static import static
+from django.urls import path, include
 """
 URL configuration for vuvoregs project.
 
@@ -18,18 +19,10 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from event.views import event_selection
-from event import views
 
 urlpatterns = [
-    path('admin', admin.site.urls),
-    path('', views.event_selection, name='event_selection'),
-    path('races/<int:event_id>/', views.race_selection, name='race_selection'),
-    path('packages/<int:race_id>/', views.package_selection, name='package_selection'),
-    path('register/<int:package_id>/', views.athlete_registration, name='athlete_registration'),
-    path('payment/<int:registration_id>/', views.payment_view, name='payment'),  # <-- Payment URL
-    path('payment-success/', views.payment_success, name='payment_success'),  # <-- Payment Success URL
-    path('payment-failed/', views.payment_failed, name='payment_failed'),
+    path('admin/', admin.site.urls),
+    path('', include('event.urls')),  # Use 'event.urls'
 ]
 
 if settings.DEBUG:

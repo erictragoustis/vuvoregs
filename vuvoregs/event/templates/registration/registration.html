@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% load jsonify %}
+{% load crispy_forms_tags %}
+{% block title %}Register for {{ race.race_type.name }} - {{ race.race_km }} KM{% endblock %}
+
+{% block content %}
+    <h1>Register for {{ race.race_type.name }} - {{ race.race_km }} KM</h1>
+    <form method="post" id="athleteForm">
+        {% csrf_token %}
+        {{ formset.management_form }}
+        <div id="athleteForms">
+            {% for form in formset %}
+                <div class="card mb-3 athlete-form">
+                    <div class="card-body">
+                        {{ form|crispy }}
+                        {% for field in form %}
+                            {% if field.errors %}
+                                <div class="alert alert-danger">
+                                    {{ field.errors }}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                        <div class="package-options-container">
+                            {% if form.instance.package %}
+                                <label for="id_{{ form.prefix }}-selected_options">Package Options:</label>
+                                <select id="id_{{ form.prefix }}-selected_options" name="{{ form.prefix }}-selected_options" multiple>
+                                    <option value="">-- Select Options --</option>
+                                </select>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        <button type="button" id="addAthlete" class="btn btn-secondary">Add Athlete</button>
+        <button type="submit" class="btn btn-primary">Proceed to Payment</button>
+    </form>
+{% endblock %}
+
+{% block js_footer %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const formsetPrefix = "{{ formset.prefix }}";
+        let formCount = parseInt("{{ formset.total_form_count }}");
+        const athleteFormsContainer = document.getElementById('athleteForms');
+
+        function fetchAndDisplayOptions(formPrefix, packageId, formBody) {
+            const optionsSelect = formBody.querySelector(`#id_${formPrefix}-selected_options`);
+            if (!optionsSelect) return;
+
+            optionsSelect.innerHTML = '<option value="">-- Loading Options --</option>';
+
+            if (packageId) {
+                fetch(`/race/package/${packageId}/options/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        optionsSelect.innerHTML = '<option value="">-- Select Options --</option>';
+                        if (data && data.options && Array.isArray(data.options) && data.options.length > 0) {
+                            data.options.forEach(option => {
+                                const optionElement = document.createElement('option');
+                                optionElement.value = option; // Assuming 'option' is the name
+                                optionElement.textContent = option;
+                                optionsSelect.appendChild(optionElement);
+                            });
+                        } else {
+                            optionsSelect.innerHTML = '<option value="">-- No Options --</option>';
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Error fetching options:", error);
+                        optionsSelect.innerHTML = '<option value="">-- Load Failed --</option>';
+                    });
+                } else {
+                    optionsSelect.innerHTML = '<option value="">-- Select Package First --</option>';
+                }
+            }
+
+            athleteFormsContainer.querySelectorAll('.athlete-form').forEach(formElement => {
+                const formPrefix = formElement.querySelector('.card-body').querySelector('select[name$="-package"]').name.replace('-package', '');
+                const packageSelect = formElement.querySelector(`select[name="${formPrefix}-package"]`);
+                const formBody = formElement.querySelector('.card-body');
+
+                if (packageSelect) {
+                    packageSelect.addEventListener('change', function() {
+                        fetchAndDisplayOptions(formPrefix, this.value, formBody);
+                    });
+                    if (packageSelect.value) {
+                        fetchAndDisplayOptions(formPrefix, packageSelect.value, formBody);
+                    }
+                }
+            });
+
+            document.getElementById('addAthlete').addEventListener('click', function() {
+                const newForm = document.querySelector('.athlete-form').cloneNode(true);
+                const newFormBody = newForm.querySelector('.card-body');
+                const newFormPrefix = formCount.toString();
+
+                newForm.innerHTML = newForm.innerHTML.replace(
+                    new RegExp(formsetPrefix + '-(\\d+)-', 'g'),
+                    formsetPrefix + '-' + newFormPrefix + '-'
+                ).replace(
+                    new RegExp('id_' + formsetPrefix + '-(\\d+)-', 'g'),
+                    'id_' + formsetPrefix + '-' + newFormPrefix + '-'
+                ).replace(
+                    new RegExp('for="' + formsetPrefix + '-(\\d+)-', 'g'),
+                    'for="' + formsetPrefix + '-' + newFormPrefix + '-'
+                );
+
+                newForm.querySelectorAll('input, select').forEach(input => {
+                    if (input.type !== 'hidden') {
+                        input.value = '';
+                        input.selected = false;
+                    }
+                });
+
+                athleteFormsContainer.appendChild(newForm);
+
+                const newPackageSelect = newForm.querySelector(`select[name="${newFormPrefix}-package"]`);
+                if (newPackageSelect) {
+                    newPackageSelect.addEventListener('change', function() {
+                        fetchAndDisplayOptions(newFormPrefix, this.value, newFormBody);
+                    });
+                }
+
+                formCount++;
+                document.getElementById('id_' + formsetPrefix + '-TOTAL_FORMS').value = formCount;
+            });
+        });
+    </script>
+{% endblock %}

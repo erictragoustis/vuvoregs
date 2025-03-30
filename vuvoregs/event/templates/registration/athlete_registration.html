@@ -1,43 +1,58 @@
 {% extends 'base.html' %}
 
-{% block title %}Register Athletes{% endblock %}
-
+{% block title %}Athlete Registration{% endblock %}
 {% block content %}
-<h2>Register for {{ package.name }}</h2>
+    <h1>Athlete Registration for {{ package.name }}</h1>
+    <p>Package Price: ${{ package.price }} per athlete</p>
 
-<form method="POST">
-    {% csrf_token %}
-    
-    <div id="athlete-forms">
-        <div class="athlete-form">
-            {% for field in forms.0 %}
-                <div class="mb-2">
-                    <label class="form-label">{{ field.label }}</label>
-                    {{ field }}
+    <form method="post" id="athlete-form">
+        {% csrf_token %}
+        <div id="athlete-forms-container">
+            {{ formset.management_form }}
+            {% for form in formset %}
+                <div class="athlete-form">
+                    {{ form.as_p }}
+                    {% if options %}
+                        {% for option in options %}
+                            <div class="mb-3">
+                                <label for="option_{{ option.id }}" class="form-label">{{ option.name }}:</label>
+                                <select name="option_{{ option.id }}" id="option_{{ option.id }}" class="form-select">
+                                    <option value="">Select an option</option>
+                                    {% for choice in option.choices %}
+                                        <option value="{{ choice }}">{{ choice }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
                 </div>
             {% endfor %}
         </div>
-    </div>
+        <button type="button" id="add-athlete" class="btn btn-primary mt-2">Add Athlete</button>
+        <button type="submit" class="btn btn-success mt-2">Submit Registration</button>
+    </form>
+    <a href="{% url 'package_selection' package.races.first.id %}" class="btn btn-secondary mt-3">Back to Packages</a>
+{% endblock %}
 
-    <button type="button" id="add-athlete" class="btn btn-primary mt-3">Add Another Athlete</button>
-    <p class="mt-3">Total Cost: <span id="total-cost">€{{ package.price }}</span></p>
-    <button type="submit" class="btn btn-success mt-3">Proceed to Payment</button>
-</form>
+{% block scripts %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const athleteFormsContainer = document.getElementById('athlete-forms-container');
+            const addAthleteButton = document.getElementById('add-athlete');
+            const formCount = document.getElementById('id_form-TOTAL_FORMS');
+            let formNum = athleteFormsContainer.querySelectorAll('.athlete-form').length;
 
-<script>
-    document.getElementById('add-athlete').addEventListener('click', function () {
-        let container = document.getElementById('athlete-forms');
-        let newForm = container.children[0].cloneNode(true);
-        
-        newForm.querySelectorAll('input').forEach(input => input.value = '');
-        
-        container.appendChild(newForm);
-
-        let totalCost = parseFloat(document.getElementById('total-cost').innerText.replace('€', ''));
-        totalCost += parseFloat("{{ package.price }}");
-        document.getElementById('total-cost').innerText = "€" + totalCost.toFixed(2);
-    });
-</script>
-
-<a href="{% url 'package_selection' package.race.id %}" class="btn btn-secondary mt-3">Back</a>
+            addAthleteButton.addEventListener('click', function() {
+                const newForm = document.querySelector('.athlete-form').cloneNode(true);
+                formNum++;
+                newForm.querySelectorAll('input, select').forEach(el => {
+                    el.name = el.name.replace(/-(\d+)-/, `-${formNum}-`);
+                    el.id = el.id.replace(/-(\d+)-/, `-${formNum}-`);
+                    el.value = '';
+                });
+                athleteFormsContainer.appendChild(newForm);
+                formCount.value = formNum;
+            });
+        });
+    </script>
 {% endblock %}
