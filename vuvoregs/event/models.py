@@ -24,12 +24,14 @@ class RaceType(models.Model):
 
 class Race(models.Model):
     """Each event has specific races, associated with a race type."""
+    name = models.CharField(max_length=255, null=True, blank=True,)
     event = models.ForeignKey(Event, related_name='races', on_delete=models.CASCADE)
     race_type = models.ForeignKey(RaceType, related_name='races', on_delete=models.CASCADE)
     race_km = models.DecimalField(max_digits=5, decimal_places=2)
+    min_participants = models.PositiveIntegerField(null=True, blank=True, help_text="Minimum number of participants required for the race.")
 
     def __str__(self):
-        return f"{self.race_type.name} - {self.race_km} KM ({self.event.name})"
+        return f"{self.name} - {self.race_type.name} - {self.race_km} KM ({self.event.name})"
 
 
 class RacePackage(models.Model):

@@ -18,7 +18,7 @@ class RaceTypeAdmin(admin.ModelAdmin):
 
 @admin.register(Race)
 class RaceAdmin(admin.ModelAdmin):
-    list_display = ('race_type', 'race_km', 'event')
+    list_display = ('name','race_type', 'race_km', 'event')
     list_filter = ('event', 'race_type')
     search_fields = ('race_type__name', 'event__name')
 

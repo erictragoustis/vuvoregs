@@ -7,7 +7,7 @@
     <ul class="list-group">
     {% for race in races %}
         <li class="list-group-item">
-            <a href="{% url 'registration' race.id %}">{{ race.race_type.name }} - {{ race.race_km }} KM</a>
+            <a href="{% url 'registration' race.id %}">{{ race.name }} - {{ race.race_km }} KM</a>
         </li>
     {% endfor %}
     </ul>

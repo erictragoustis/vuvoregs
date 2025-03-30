@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from .models import Event, Race, RacePackage, Registration, PackageOption
-from .forms import AthleteFormSet
+from .models import Event, Race, RacePackage, Registration, PackageOption, Athlete
+from .forms import athlete_formset_factory
 from django.http import JsonResponse  # Import JsonResponse
 
 
@@ -20,10 +20,12 @@ def registration(request, race_id):
     event = race.event
     packages = RacePackage.objects.filter(event=event)
 
+    AthleteFormSet = athlete_formset_factory(race)
+
     if request.method == 'POST':
         formset = AthleteFormSet(request.POST, form_kwargs={'race': race, 'packages': packages})
         if formset.is_valid():
-            registration_instance = Registration.objects.create() # create new registration.
+            registration_instance = Registration.objects.create()
             instances = formset.save(commit=False)
             total_amount = 0
             for instance in instances:
@@ -43,15 +45,13 @@ def registration(request, race_id):
 
     return render(request, 'registration/registration.html', {'race': race, 'formset': formset})
 
-
 def package_options(request, package_id):
-    package = get_object_or_404(RacePackage, pk=package_id)
-    print(f"Package: {package}")  # Debug: Print the package
-    options = PackageOption.objects.filter(package=package).values_list('options_json', flat=True)
-    print(f"Options Queryset: {options}") # Debug: Print the queryset
-    options_list = list(options)
-    print(f"Options List: {options_list}") # Debug: print the list
-    return JsonResponse({'options': options_list})
+    try:
+        package = RacePackage.objects.get(pk=package_id)
+        package_options_data = [{'id': option.id, 'name': option.name, 'options_json': option.options_json} for option in package.packageoption_set.all()]
+        return JsonResponse({'package_options': package_options_data})
+    except RacePackage.DoesNotExist:
+        return JsonResponse({'package_options': []})
 
 def payment(request, registration_id):
     """Handles payment processing for a registration."""
