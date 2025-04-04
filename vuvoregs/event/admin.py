@@ -43,6 +43,6 @@ class RegistrationAdmin(admin.ModelAdmin):
 
 @admin.register(Athlete)
 class AthleteAdmin(admin.ModelAdmin):
-    list_display = ('first_name', 'last_name', 'race', 'package', 'registration')
+    list_display = ('first_name', 'last_name', 'race', 'package', 'registration', 'registration__status')
     list_filter = ('race', 'package')
     search_fields = ('first_name', 'last_name', 'race__name')

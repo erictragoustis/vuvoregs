@@ -2,10 +2,23 @@ from django.shortcuts import render, get_object_or_404, redirect
 from .models import Event, Race, RacePackage, Registration, PackageOption, Athlete
 from .forms import athlete_formset_factory
 from django.http import JsonResponse
+from django.utils.timezone import now
+from django.db.models import Count, Q, F
 
 def event_list(request):
     """Displays a list of available events."""
-    events = Event.objects.filter(is_available=True)
+      # Counting unique athletes
+    
+    events = Event.objects.annotate(
+   num_athletes = Count('registrations__athletes', distinct=True)
+).filter(
+    is_available=True,  # Event must be available
+    date__gte=now().date(),  # Event must be today or in the future
+    registration_start_date__lte=now(),  # Registration must have started
+    registration_end_date__gte=now(),  # Registration must still be open
+    ).filter(
+    Q(max_participants__isnull=True) | Q(num_athletes__lt=F('max_participants'))  # Ensure event is not full
+).order_by('date')  # Sort events by soonest first
     return render(request, 'registration/event_list.html', {'events': events})
 
 def race_list(request, event_id):

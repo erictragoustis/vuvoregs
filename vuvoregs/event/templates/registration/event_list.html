@@ -6,9 +6,11 @@
     <h1>Available Events</h1>
     <ul class="list-group">
     {% for event in events %}
+
         <li class="list-group-item">
-            <a href="{% url 'race_list' event.id %}">{{ event.name }}</a>
+            <a href="{% url 'race_list' event.id %}">{{ event.name }}- {{event.num_athletes}}</a>
         </li>
+
     {% endfor %}
     </ul>
 {% endblock %}
