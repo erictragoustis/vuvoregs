@@ -2,6 +2,31 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 import json
+from django.utils.timezone import now
+from django.db.models import Q, Count, F
+
+class EventManager(models.Manager):
+    def available(self):
+        return self.get_queryset().annotate(
+            num_athletes=Count('registrations__athletes', distinct=True)
+        ).filter(
+            is_available=True,
+            date__gte=now().date(),
+            registration_start_date__lte=now(),
+            registration_end_date__gte=now(),
+        ).filter(
+            Q(max_participants__isnull=True) |
+            Q(num_athletes__lt=F('max_participants'))
+        )
+
+class RaceManager(models.Manager):
+    def available(self):
+        return self.get_queryset().annotate(
+            num_athletes=Count('registration__athletes', distinct=True)
+        ).filter(
+            Q(max_participants__isnull=True) |
+            Q(num_athletes__lt=F('max_participants'))
+        )
 
 class Event(models.Model):
     """Represents a race event."""
@@ -14,6 +39,7 @@ class Event(models.Model):
     registration_start_date = models.DateTimeField(null=True, blank=True,)
     registration_end_date = models.DateTimeField(null=True, blank=True,)
     is_available = models.BooleanField(default=True)
+    objects = EventManager()
 
     def __str__(self):
         return self.name
@@ -23,6 +49,7 @@ class RaceType(models.Model):
     """Defines the type of race (e.g., Marathon, Trail, Relay)."""
     name = models.CharField(max_length=50)
     description = models.TextField(blank=True)
+    objects = RaceManager()
 
     def __str__(self):
         return self.name

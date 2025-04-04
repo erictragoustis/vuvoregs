@@ -9,23 +9,29 @@ def event_list(request):
     """Displays a list of available events."""
       # Counting unique athletes
     
-    events = Event.objects.annotate(
-   num_athletes = Count('registrations__athletes', distinct=True)
-).filter(
-    is_available=True,  # Event must be available
-    date__gte=now().date(),  # Event must be today or in the future
-    registration_start_date__lte=now(),  # Registration must have started
-    registration_end_date__gte=now(),  # Registration must still be open
-    ).filter(
-    Q(max_participants__isnull=True) | Q(num_athletes__lt=F('max_participants'))  # Ensure event is not full
-).order_by('date')  # Sort events by soonest first
+    events = Event.objects.available().order_by('date')  # Sort events by soonest first
     return render(request, 'registration/event_list.html', {'events': events})
 
 def race_list(request, event_id):
     """Displays a list of races for a selected event."""
-    event = get_object_or_404(Event, pk=event_id)
-    races = Race.objects.filter(event=event)
-    return render(request, 'registration/race_list.html', {'event': event, 'races': races})
+    
+    try:
+        event = Event.objects.available().get(pk=event_id)
+        races = Race.objects.filter(event=event)
+    except Event.DoesNotExist:
+         message = "Registrations are closed for this event."
+         return render(request, 'registration/race_list.html', {
+            'event': None,
+            'races': [],
+            'message': message
+        })
+ 
+        
+    return render(request, 'registration/race_list.html', {
+        'event': event,
+        'races': races,
+
+    })
 
 def registration(request, race_id):
     race = get_object_or_404(Race, pk=race_id)
