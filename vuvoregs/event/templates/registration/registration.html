@@ -2,163 +2,148 @@
 {% load crispy_forms_tags %}
 
 {% block content %}
-    <h1>Register for {{ race.name }} - {{ race.race_km }} KM</h1>
+<h1>Register for {{ race.name }} - {{ race.race_km }} KM</h1>
 
-    {% if race.min_participants %}
-        <p class="alert alert-info">
-            This registration requires a minimum of {{ race.min_participants }} participants. Please fill out the forms below.
-        </p>
-    {% endif %}
+{% if race.min_participants %}
+  <p class="alert alert-info">
+    This registration requires a minimum of {{ race.min_participants }} participants. Please fill out the forms below.
+  </p>
+{% endif %}
 
-    <form method="post" id="athleteForm">
-        {% csrf_token %}
-        {{ formset.management_form }}
-        <div id="athleteForms">
-            {% for form in formset %}
-                <div class="card mb-3 athlete-form">
-                    <div class="card-body">
-                        {{ form|crispy }}
-                        <div class="package-options-container"></div>
-                    </div>
-                </div>
-            {% endfor %}
+<form method="post" id="athleteForm">
+  {% csrf_token %}
+  {{ formset.management_form }}
+  <div id="athleteForms">
+    {% for form in formset %}
+      <div class="card mb-3 athlete-form">
+        <div class="card-body">
+          {{ form|crispy }}
+          <div class="package-options-container"></div>
         </div>
-        <button type="button" id="addAthlete" class="btn btn-secondary">Add Athlete</button>
-        <button type="submit" class="btn btn-primary">Proceed to Payment</button>
-    </form>
+      </div>
+    {% endfor %}
+  </div>
+  <button type="button" id="addAthlete" class="btn btn-secondary">Add Athlete</button>
+  <button type="submit" class="btn btn-primary">Proceed to Payment</button>
+</form>
 {% endblock %}
 
 {% block js_footer %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-    const formsetPrefix = "{{ formset.prefix }}";
-    let formCount = parseInt("{{ formset.total_form_count }}");
-    const athleteFormsContainer = document.getElementById('athleteForms');
+document.addEventListener('DOMContentLoaded', function () {
+  const formsetPrefix = "{{ formset.prefix }}";
+  let formCount = parseInt("{{ formset.total_form_count }}");
+  const athleteFormsContainer = document.getElementById('athleteForms');
 
-    function addForm() {
-        const newForm = document.querySelector('.athlete-form').cloneNode(true);
-        const newFormPrefix = formCount.toString();
-        newForm.innerHTML = newForm.innerHTML.replace(
-            new RegExp(formsetPrefix + '-(\\d+)-', 'g'),
-            formsetPrefix + '-' + newFormPrefix + '-'
-        ).replace(
-            new RegExp('id_' + formsetPrefix + '-(\\d+)-', 'g'),
-            'id_' + formsetPrefix + '-' + newFormPrefix + '-'
-        ).replace(
-            new RegExp('for="' + formsetPrefix + '-(\\d+)-', 'g'),
-            'for="' + formsetPrefix + '-' + newFormPrefix + '-'
-        );
+  function addForm() {
+    const firstForm = document.querySelector('.athlete-form');
+    const newForm = firstForm.cloneNode(true);
+    const newFormPrefix = formCount.toString();
 
-        newForm.querySelectorAll('input, select').forEach(input => {
-            if (input.type !== 'hidden') {
-                input.value = '';
-                input.selected = false;
-                        }
-            });
+    // Replace prefix in HTML for new form index
+    newForm.innerHTML = newForm.innerHTML
+      .replace(new RegExp(`${formsetPrefix}-(\\d+)-`, 'g'), `${formsetPrefix}-${newFormPrefix}-`)
+      .replace(new RegExp(`id_${formsetPrefix}-(\\d+)-`, 'g'), `id_${formsetPrefix}-${newFormPrefix}-`)
+      .replace(new RegExp(`for="${formsetPrefix}-(\\d+)-`, 'g'), `for="${formsetPrefix}-${newFormPrefix}-`);
 
-        athleteFormsContainer.appendChild(newForm);
-        const newPackageSelect = newForm.querySelector('select[name$="-package"]');
-        if (newPackageSelect) {
-            newPackageSelect.value = '';
-            updatePackageOptions(newForm, '');
-            newPackageSelect.addEventListener('change', function() {
-                updatePackageOptions(newForm, this.value);
-            });
-        }
+    // Reset input values
+    newForm.querySelectorAll('input, select, textarea').forEach(input => {
+      if (!['hidden', 'submit', 'button'].includes(input.type)) {
+        input.value = '';
+      }
+    });
 
-        formCount++;
-        document.getElementById('id_' + formsetPrefix + '-TOTAL_FORMS').value = formCount;
+    // Clear previous package options
+    const optionsContainer = newForm.querySelector('.package-options-container');
+    if (optionsContainer) optionsContainer.innerHTML = '';
+
+    // Append form to DOM
+    athleteFormsContainer.appendChild(newForm);
+
+    // Bind package selector
+    const newPackageSelect = newForm.querySelector(`select[name$="-package"]`);
+    if (newPackageSelect) {
+      newPackageSelect.addEventListener('change', function () {
+        updatePackageOptions(newForm, this.value, newFormPrefix);
+      });
     }
 
-    function updatePackageOptions(formElement, packageId) {
+    // Update management form count
+    document.getElementById(`id_${formsetPrefix}-TOTAL_FORMS`).value = ++formCount;
+  }
+
+  function updatePackageOptions(formElement, packageId, formIndex) {
     const optionsContainer = formElement.querySelector('.package-options-container');
-    optionsContainer.innerHTML = ''; // Clear previous options
+    optionsContainer.innerHTML = '';
 
     if (packageId) {
-        fetch(`/race/package/${packageId}/options/`)
-            .then(response => response.json())
-            .then(data => {
-                console.log("Fetched package options:", data);
+      fetch(`/race/package/${packageId}/options/`)
+        .then(response => response.json())
+        .then(data => {
+          if (data && data.package_options.length > 0) {
+            data.package_options.forEach((pkgOption) => {
+              // Create label
+              const label = document.createElement('label');
+              label.textContent = `${pkgOption.name}:`;
+              label.setAttribute('for', `id_${formIndex}_package_option_${pkgOption.id}`);
 
-                if (data && data.package_options.length > 0) {
-                    const formIndex = formElement.querySelector('input[name$="-id"]')?.value || 
-                                      formElement.querySelector('select[name$="-package"]').name.match(/\d+/)[0];
+              // Create select
+              const select = document.createElement('select');
+              select.id = `id_${formIndex}_package_option_${pkgOption.id}`;
+              select.name = `athlete-${formIndex}-option-${pkgOption.id}`;
+              select.classList.add('form-control');
 
-                    data.package_options.forEach((packageOption) => {
-                        console.log(`Adding options for: ${packageOption.name}`, packageOption.options_json);
+              // Hidden field to keep name (optional use)
+              const hiddenInput = document.createElement('input');
+              hiddenInput.type = 'hidden';
+              hiddenInput.name = `athlete-${formIndex}-option-${pkgOption.id}-name`;
+              hiddenInput.value = pkgOption.name;
 
-                        // Create label
-                        const label = document.createElement('label');
-                        label.textContent = `${packageOption.name}:`;
-                        label.setAttribute("for", `id_${formIndex}_package_option_${packageOption.id}`);
+              const defaultOption = document.createElement('option');
+              defaultOption.value = '';
+              defaultOption.disabled = true;
+              defaultOption.selected = true;
+              defaultOption.textContent = 'Select an option';
+              select.appendChild(defaultOption);
 
-                        // Create select dropdown
-                        const select = document.createElement('select');
-                        select.id = `id_${formIndex}_package_option_${packageOption.id}`;
-                        select.name = `athlete-${formIndex}-option-${packageOption.id}`;
-                        select.classList.add('form-control');
+              (pkgOption.options_json || []).forEach(opt => {
+                const option = document.createElement('option');
+                option.value = typeof opt === 'string' ? opt : opt.option;
+                option.textContent = typeof opt === 'string' ? opt : (opt.label || opt.option);
+                select.appendChild(option);
+              });
 
-                        // Create hidden input for package option name
-                        const hiddenInput = document.createElement('input');
-                        hiddenInput.type = 'hidden';
-                        hiddenInput.name = `athlete-${formIndex}-option-${packageOption.id}-name`;
-                        hiddenInput.value = packageOption.name;
-
-                        // Default placeholder option
-                        const defaultOption = document.createElement('option');
-                        defaultOption.value = "";
-                        defaultOption.disabled = true;
-                        defaultOption.selected = true;
-                        defaultOption.textContent = "Select an option";
-                        select.appendChild(defaultOption);
-
-                        // Populate options
-                        if (packageOption.options_json && packageOption.options_json.length > 0) {
-                            packageOption.options_json.forEach(optionDict => {
-                                console.log("Processing optionDict:", optionDict);
-
-                                const option = document.createElement('option');
-                                option.value = typeof optionDict === "string" ? optionDict : optionDict.option;
-                                option.textContent = option.value;
-                                select.appendChild(option);
-                            });
-                        } else {
-                            console.warn(`No valid options for: ${packageOption.name}`);
-                        }
-
-                        // Append elements
-                        optionsContainer.appendChild(label);
-                        optionsContainer.appendChild(select);
-                        optionsContainer.appendChild(hiddenInput);
-                    });
-                } else {
-                    console.warn("No package options found for package ID:", packageId);
-                }
-            })
-            .catch(error => {
-                console.error("Error fetching package options:", error);
-                optionsContainer.innerHTML = '<p class="text-danger">Error loading options.</p>';
+              optionsContainer.appendChild(label);
+              optionsContainer.appendChild(select);
+              optionsContainer.appendChild(hiddenInput);
             });
+          }
+        })
+        .catch(error => {
+          console.error("Error loading package options:", error);
+          optionsContainer.innerHTML = `<p class="text-danger">Error loading options.</p>`;
+        });
     }
-}
+  }
 
+  // Bind package selectors on existing forms (but prevent duplicate fetches)
+  athleteFormsContainer.querySelectorAll('.athlete-form').forEach((formElement, index) => {
+    const packageSelect = formElement.querySelector('select[name$="-package"]');
+    const optionsContainer = formElement.querySelector('.package-options-container');
 
-
-            athleteFormsContainer.querySelectorAll('.athlete-form').forEach(formElement => {
-                const packageSelect = formElement.querySelector('select[name$="-package"]');
     if (packageSelect) {
-        packageSelect.addEventListener('change', function () {
-            updatePackageOptions(formElement, this.value);
-        });
-    if (packageSelect.value) {
-        updatePackageOptions(formElement, packageSelect.value);
-                    }
-                }
-            });
+      packageSelect.addEventListener('change', function () {
+        updatePackageOptions(formElement, this.value, index);
+      });
 
-    document.getElementById('addAthlete').addEventListener('click', function() {
-        addForm();
-            });
-        });
+      // Only run AJAX if Django didn't render options already
+      if (packageSelect.value && optionsContainer && optionsContainer.children.length === 0) {
+        updatePackageOptions(formElement, packageSelect.value, index);
+      }
+    }
+  });
+
+  document.getElementById('addAthlete').addEventListener('click', addForm);
+});
 </script>
 {% endblock %}

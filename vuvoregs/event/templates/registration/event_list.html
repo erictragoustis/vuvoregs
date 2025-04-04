@@ -8,7 +8,7 @@
     {% for event in events %}
 
         <li class="list-group-item">
-            <a href="{% url 'race_list' event.id %}">{{ event.name }}- {{event.num_athletes}}</a>
+            <a href="{% url 'race_list' event.id %}">{{ event.name }} - {{event.paid_athlete_count}}</a>
         </li>
 
     {% endfor %}

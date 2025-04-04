@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     #packages
     'crispy_forms',
     'crispy_bootstrap5',
+    'django_json_widget',
     #apps
     'event.templatetags',
     'event',

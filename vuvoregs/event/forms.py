@@ -1,41 +1,42 @@
 from django import forms
 from django.forms import inlineformset_factory
-from .models import Athlete, Registration, RacePackage, Race
+from .models import Athlete, Registration, RacePackage, PickUpPoint
 from django.core.exceptions import ValidationError
 
 class AthleteForm(forms.ModelForm):
-    """Form for registering an athlete for a race."""
+    """
+    Form for registering an athlete to a race.
+    Filters available packages and pickup points by event.
+    """
     class Meta:
         model = Athlete
-        fields = ['first_name', 'last_name', 'email', 'phone', 'sex','dob', 'hometown', 'package']
+        fields = [
+            'first_name', 'last_name', 'email', 'phone',
+            'sex', 'dob', 'pickup_point', 'hometown', 'package'
+        ]
         widgets = {
-        'dob': forms.DateInput(format=('%d/%m/%Y'), attrs={'class':'form-control', 'placeholder':'Select a date', 'type':'date'}),
+            'dob': forms.DateInput(
+                format=('%Y-%m-%d'),
+                attrs={'type': 'date', 'class': 'form-control'}
+            )
         }
+
     def __init__(self, *args, **kwargs):
         race = kwargs.pop('race', None)
         packages = kwargs.pop('packages', None)
         super().__init__(*args, **kwargs)
-        
-        if packages:
-            self.fields['package'].queryset = packages
-        
-        if self.data or not self.instance.pk:
-            package_id = self.data.get(self.prefix + '-package') if self.data else None
-            if self.instance.pk:
-                package_id = self.instance.package_id
-            if package_id:
-                try:
-                    package = RacePackage.objects.get(pk=package_id)
-                    if package.packageoption_set.exists():
-                        self.fields['selected_options'] = forms.MultipleChoiceField(
-                            choices=[(option.id, option.name) for option in package.packageoption_set.all()],
-                            required=False,
-                            widget=forms.CheckboxSelectMultiple,
-                            label='Package Options'
-                        )
-                except RacePackage.DoesNotExist:
-                    pass
 
+        # ✅ Corrected: allow empty querysets
+        if packages is not None:
+            self.fields['package'].queryset = packages
+
+        if race:
+            event = race.event
+            self.fields['pickup_point'].queryset = event.pickup_points.all()
+        else:
+            self.fields['pickup_point'].queryset = PickUpPoint.objects.none()
+        
+      
 
 class MinParticipantsFormSet(forms.BaseInlineFormSet):
     """Ensures that the minimum required participants are registered."""
