@@ -1,7 +1,23 @@
 {% extends 'base.html' %}
 {% load crispy_forms_tags static %}
 
-{% block title %}Register for {{ race.name }}{% endblock %}
+{% block title %}Register for {{ race.name }} {% endblock %}
+<!-- Terms Modal -->
+<div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="termsModalLabel">Terms & Conditions</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        {{ race.event.terms.content|safe }}
+      </div>
+    </div>
+  </div>
+</div>
+
+
 
 {% block css %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -46,6 +62,22 @@
         background-color: #fff0f0;
     }
 </style>
+
+<!-- Terms Modal -->
+<div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="termsModalLabel">Terms & Conditions</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        {{ race.event.terms.content|safe }}
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block content %}
@@ -114,6 +146,17 @@
                 </div>
 
                 <div class="package-options-container mt-3"></div>
+<div class="form-check mt-4">
+    {{ form.agrees_to_terms }}
+    <label class="form-check-label" for="{{ form.agrees_to_terms.id_for_label }}">
+        {{ form.agrees_to_terms.label }} (<a href="#" data-bs-toggle="modal" data-bs-target="#termsModal">view</a>)
+    </label>
+    {% if form.agrees_to_terms.errors %}
+        <div class="text-danger small">{{ form.agrees_to_terms.errors.0 }}</div>
+    {% endif %}
+</div>
+
+
             </div>
         </div>
         {% endfor %}
@@ -154,6 +197,22 @@
         {% endif %}
     </div>
 </form>
+
+
+<!-- Terms Modal -->
+<div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="termsModalLabel">Terms & Conditions</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        {{ race.event.terms.content|safe }}
+      </div>
+    </div>
+  </div>
+</div>
 
 {% endblock %}
 
@@ -383,4 +442,20 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 </script>
+
+<!-- Terms Modal -->
+<div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="termsModalLabel">Terms & Conditions</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        {{ race.event.terms.content|safe }}
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}

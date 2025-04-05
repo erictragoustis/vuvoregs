@@ -1,12 +1,12 @@
-# ✅ Refined AthleteForm with error integration into universal toast system
-# Non-field errors will be collected by the template and shown as toasts
-
 from django import forms
 from django.forms import inlineformset_factory, BaseInlineFormSet
 from django.core.exceptions import ValidationError
+from django.utils import timezone
+from .models import Event
+
 from .models import Athlete, Registration, RacePackage, PickUpPoint
 
-# 🏃 Form for registering a single athlete
+
 class AthleteForm(forms.ModelForm):
     class Meta:
         model = Athlete
@@ -26,34 +26,45 @@ class AthleteForm(forms.ModelForm):
         packages = kwargs.pop('packages', None)
         super().__init__(*args, **kwargs)
 
-        # Injected later via formset
         self.request = None
         self.form_index = None
+        self.race = race
 
-        # Set packages for dropdown and mark as required
         if packages is not None:
             self.fields['package'].queryset = packages
-
         self.fields['package'].required = True
         self.fields['package'].error_messages = {
             'required': 'Please select a package.'
         }
 
-        # Filter pickup points based on event from race
         if race:
-            event = race.event
-            self.fields['pickup_point'].queryset = event.pickup_points.all()
+            self.fields['pickup_point'].queryset = race.event.pickup_points.all()
         else:
             self.fields['pickup_point'].queryset = PickUpPoint.objects.none()
+
+        # 🔐 Terms & Conditions agreement per event
+        terms = getattr(race.event, 'terms', None) if race else None
+        if terms:
+            self.fields['agrees_to_terms'] = forms.BooleanField(
+                label=f"I agree to the Terms & Conditions (v{terms.version}) for {race.event.name}",
+                required=True,
+                error_messages={'required': 'You must agree to the Terms & Conditions to register.'}
+            )
 
     def clean(self):
         cleaned_data = super().clean()
 
-        # 🚨 Enforce that a package is selected
+        # 🔒 Enforce T&Cs requirement
+        terms = getattr(self.race.event, 'terms', None)
+        if terms:
+            self.instance.agreed_to_terms = terms
+            self.instance.agreed_at = timezone.now()
+        else:
+            raise ValidationError("This event has no Terms & Conditions set.")
+
         if not cleaned_data.get('package'):
             self.add_error('package', "You must select a package.")
 
-        # 🔌 Parse selected_options from request.POST (if request injected)
         if self.request and self.form_index is not None:
             prefix = "athlete"
             index = self.form_index
@@ -65,16 +76,13 @@ class AthleteForm(forms.ModelForm):
                     option_name_key = f'{key}-name'
                     option_name = self.request.POST.get(option_name_key, f'Option {option_id}')
                     values = self.request.POST.getlist(key)
-
                     if values and any(v.strip() for v in values):
                         selected_options[option_name] = values
-
             self.instance.selected_options = selected_options if selected_options else {}
 
         return cleaned_data
 
 
-# 📦 Custom formset enforcing min participants and request injection
 class MinParticipantsFormSet(BaseInlineFormSet):
     def __init__(self, *args, **kwargs):
         self.race = kwargs.pop('race', None)
@@ -82,10 +90,10 @@ class MinParticipantsFormSet(BaseInlineFormSet):
 
     def add_fields(self, form, index):
         super().add_fields(form, index)
-        # Inject request + index context to each form
         form.empty_permitted = False
         form.request = getattr(self, 'request', None)
         form.form_index = index
+        form.race = self.race
 
     def clean(self):
         super().clean()
@@ -100,10 +108,8 @@ class MinParticipantsFormSet(BaseInlineFormSet):
                 )
 
 
-# 🧪 Factory for dynamic athlete formset per race context
 def athlete_formset_factory(race):
     extra_forms = race.min_participants if race and race.min_participants else 1
-
     AthleteFormSet = inlineformset_factory(
         parent_model=Registration,
         model=Athlete,
@@ -112,5 +118,14 @@ def athlete_formset_factory(race):
         extra=extra_forms,
         can_delete=False,
     )
-
     return AthleteFormSet
+
+class BibNumberImportForm(forms.Form):
+    csv_file = forms.FileField(
+        label="CSV file",
+        help_text="Upload a CSV with columns: id;bib_number",
+        required=True
+    )
+    
+class ExportEventAthletesForm(forms.Form):
+    event = forms.ModelChoiceField(queryset=Event.objects.all(), required=True, label="Select Event")

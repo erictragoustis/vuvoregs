@@ -178,6 +178,16 @@ class Registration(models.Model):
     def __str__(self):
         return f"Registration {self.id} - {self.status} ({self.created_at.strftime('%Y-%m-%d')})"
 
+class TermsAndConditions(models.Model):
+    event = models.OneToOneField("Event", on_delete=models.CASCADE, related_name="terms")
+    title = models.CharField(max_length=255, default="Terms and Conditions")
+    content = models.TextField(help_text="You can use basic HTML or markdown.")
+    version = models.CharField(max_length=20, default="1.0")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.title} (v{self.version}) for {self.event.name}"
+
 class Athlete(models.Model):
     registration = models.ForeignKey(
         Registration, 
@@ -206,6 +216,14 @@ class Athlete(models.Model):
     )
     registration_date = models.DateTimeField(auto_now_add=True)
     selected_options = models.JSONField(null=True, blank=True)
+    agreed_to_terms = models.ForeignKey(
+    TermsAndConditions,
+    null=True,
+    blank=True,
+    on_delete=models.SET_NULL,
+    related_name="agreements"
+    )
+    agrees_to_terms = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} - {self.race.race_type.name}"

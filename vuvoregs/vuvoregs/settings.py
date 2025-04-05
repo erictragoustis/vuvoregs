@@ -136,3 +136,20 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
 
 CRISPY_TEMPLATE_PACK = "bootstrap5"
+
+JAZZMIN_SETTINGS = {
+    "custom_links": {
+        "event": [  # ← matches your app name exactly
+            {
+                "name": "📤 Export Event Athletes",
+                "url": "admin:export-athletes",
+                "icon": "fas fa-download"
+            },
+            {
+                "name": "📥 Import Bib Numbers",
+                "url": "admin:import-bibs",
+                "icon": "fas fa-upload"
+            },
+        ]
+    },
+}
