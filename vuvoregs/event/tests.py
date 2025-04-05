@@ -182,6 +182,72 @@ class ViewTests(TestCase):
         self.assertEqual(athletes[0].selected_options, {"T-Shirt": ["M"]})
         self.assertEqual(athletes[1].selected_options, {"T-Shirt": ["L"]})
 
+    def test_registration_total_amount_and_payment_view_reflects_total(self):
+        from .models import Registration
+
+        # Create multiple packages with different prices (if needed)
+        self.package.price = 25.00
+        self.package.save()
+
+        # Create a PackageOption to simulate frontend JS selections
+        PackageOption.objects.create(
+            package=self.package,
+            name="T-Shirt",
+            options_json=["S", "M", "L"]
+        )
+
+        url = reverse('registration', args=[self.race.id])
+
+        post_data = {
+            # Formset management
+            'athletes-TOTAL_FORMS': '2',
+            'athletes-INITIAL_FORMS': '0',
+            'athletes-MIN_NUM_FORMS': '0',
+            'athletes-MAX_NUM_FORMS': '1000',
+
+            # Athlete 0
+            'athletes-0-first_name': 'Lara',
+            'athletes-0-last_name': 'Croft',
+            'athletes-0-email': 'lara@example.com',
+            'athletes-0-phone': '1234567890',
+            'athletes-0-sex': 'Female',
+            'athletes-0-dob': '1985-02-14',
+            'athletes-0-hometown': 'Tomb Raider HQ',
+            'athletes-0-package': str(self.package.id),
+            'athletes-0-pickup_point': str(self.pickup_point.id),
+            'athlete-0-option-1': 'M',
+            'athlete-0-option-1-name': 'T-Shirt',
+
+            # Athlete 1
+            'athletes-1-first_name': 'Nathan',
+            'athletes-1-last_name': 'Drake',
+            'athletes-1-email': 'nathan@example.com',
+            'athletes-1-phone': '9876543210',
+            'athletes-1-sex': 'Male',
+            'athletes-1-dob': '1983-06-15',
+            'athletes-1-hometown': 'Adventure Town',
+            'athletes-1-package': str(self.package.id),
+            'athletes-1-pickup_point': str(self.pickup_point.id),
+            'athlete-1-option-1': 'L',
+            'athlete-1-option-1-name': 'T-Shirt',
+        }
+
+        # Submit the form
+        response = self.client.post(url, data=post_data)
+
+        # Assert redirect to /payment/<registration_id>/
+        self.assertEqual(response.status_code, 302)
+        registration_id = response.url.split("/")[-2]
+        registration = Registration.objects.get(pk=registration_id)
+
+        # ✅ 2 athletes × $25 = $50 total
+        self.assertEqual(float(registration.total_amount), 50.00)
+
+        # ✅ Check that payment view shows this total
+        payment_url = reverse('payment', args=[registration.id])
+        payment_response = self.client.get(payment_url)
+        self.assertEqual(payment_response.status_code, 200)
+        self.assertContains(payment_response, "$50.00")
 
 
 class RegistrationTestCase(TestCase):

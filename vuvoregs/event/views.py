@@ -3,31 +3,18 @@ from django.http import JsonResponse
 from django.utils.timezone import now
 from django.db import transaction
 from django.db.models import Q, Count, F
-import json
+from django.contrib import messages
 
-from .models import Event, Race, RacePackage, Registration, Athlete
+from .models import Event, Race, RacePackage, Registration
 from .forms import athlete_formset_factory
 
-
-# ================================
-# 📅  List All Available Events
-# ================================
+# 📅 List all upcoming events
 def event_list(request):
-    """
-    Displays a list of all upcoming events, ordered by date.
-    """
     events = Event.objects.order_by('date')
     return render(request, 'registration/event_list.html', {'events': events})
 
-
-# ================================
-# 🏁  List Races in an Event
-# ================================
+# 🏁 Show races under a selected event
 def race_list(request, event_id):
-    """
-    Displays races associated with a specific event.
-    If the event doesn't exist, return a graceful message.
-    """
     try:
         event = Event.objects.get(pk=event_id)
         races = Race.objects.filter(event=event)
@@ -37,23 +24,13 @@ def race_list(request, event_id):
             'races': [],
             'message': "Registrations are closed for this event."
         })
-
     return render(request, 'registration/race_list.html', {
         'event': event,
         'races': races,
     })
 
-
-# ================================
-# 📝  Athlete Registration Flow
-# ================================
+# 📝 Handle multi-athlete registration for a race
 def registration(request, race_id):
-    """
-    Handles the athlete registration for a race.
-    - Shows one or more forms based on race.min_participants
-    - Filters available packages and pickup points based on event
-    - Collects package options via JS and stores them as JSON
-    """
     race = get_object_or_404(Race, pk=race_id)
     event = race.event
 
@@ -64,128 +41,96 @@ def registration(request, race_id):
     AthleteFormSet = athlete_formset_factory(race)
 
     if request.method == 'POST':
-        # Inject race/packages context into each form
         formset = AthleteFormSet(
-            request.POST,
-            form_kwargs={'race': race, 'packages': packages}
+            data=request.POST,
+            form_kwargs={'race': race, 'packages': packages},
+            prefix='athlete',
+            race=race
         )
+        # 🔌 Inject request context manually into formset
+        formset.request = request
 
         if formset.is_valid():
             with transaction.atomic():
                 registration_instance = Registration.objects.create(event=event)
                 total_amount = 0
 
-                instances = formset.save(commit=False)
-
-                for index, instance in enumerate(instances):
-                    instance.registration = registration_instance
-                    instance.race = race
-
-                    # Handle dynamic package options submitted via JS
-                    selected_options = {}
-                    for key in request.POST:
-                        if key.startswith(f'athlete-{index}-option-') and not key.endswith('-name'):
-                            option_id = key.split(f'athlete-{index}-option-')[-1]
-                            option_name_key = f'{key}-name'
-                            option_name = request.POST.get(option_name_key, f'Option {option_id}')
-                            values = request.POST.getlist(key)
-
-                            if values:
-                                selected_options[option_name] = values
-
-                    try:
-                        instance.selected_options = json.loads(json.dumps(selected_options))
-                    except (ValueError, TypeError):
-                        instance.selected_options = None
-
-                    instance.save()
-                    total_amount += instance.package.price
+                athlete_instances = formset.save(commit=False)
+                for athlete_obj in athlete_instances:
+                    athlete_obj.registration = registration_instance
+                    athlete_obj.race = race
+                    athlete_obj.save()
+                    total_amount += athlete_obj.package.price
 
                 registration_instance.total_amount = total_amount
                 registration_instance.save()
 
             return redirect('payment', registration_id=registration_instance.id)
-
         else:
-            print("Formset errors:", formset.errors)
-
+  
+            valid_forms = sum(1 for form in formset if form.is_valid() and form.has_changed())
+            if race.min_participants and valid_forms < race.min_participants:
+                # 📣 Rely on universal toast — no duplicate warning needed if JS handles it
+                messages.warning(
+                    request,
+                    f"This race requires at least {race.min_participants} participants. "
+                    f"Please complete at least {race.min_participants} athlete forms."
+                )
     else:
-        formset = AthleteFormSet(form_kwargs={'race': race, 'packages': packages})
+        formset = AthleteFormSet(
+            form_kwargs={'race': race, 'packages': packages},
+            prefix='athlete',
+            race=race
+        )
+        # 🔌 Inject request for GET too (needed if any JS pulls form data)
+        formset.request = request
 
     return render(request, 'registration/registration.html', {
         'race': race,
-        'formset': formset
+        'formset': formset,
+        'min_participants': race.min_participants or 1
     })
 
-
-# ================================
-# 🔄  AJAX: Package Option Loader
-# ================================
+# 📦 Return package options as JSON (used by JS)
 def package_options(request, package_id):
-    """
-    Returns JSON data for all options attached to a given package.
-    Used by frontend JS to dynamically render package options.
-    """
     try:
         package = RacePackage.objects.get(pk=package_id)
-        package_options_data = [
-            {
-                'id': option.id,
-                'name': option.name,
-                'options_json': option.options_json
-            }
-            for option in package.packageoption_set.all()
-        ]
-        return JsonResponse({'package_options': package_options_data})
     except RacePackage.DoesNotExist:
         return JsonResponse({'package_options': []})
 
+    return JsonResponse({
+        'package_options': [
+            {'id': opt.id, 'name': opt.name, 'options_json': opt.options_json}
+            for opt in package.packageoption_set.all()
+        ]
+    })
 
-# ================================
-# 💳  Payment (Mocked)
-# ================================
+# 💳 Fake payment flow
 def payment(request, registration_id):
-    """
-    Simulates payment processing for a registration.
-    (Replace with real gateway integration like Stripe or Razorpay.)
-    """
     registration = get_object_or_404(Registration, pk=registration_id)
-
     if request.method == 'POST':
-        # Placeholder for real payment success
-        payment_successful = request.POST.get("mock_fail") != "1"
+        success = request.POST.get("mock_fail") != "1"
+        registration.payment_status = 'paid' if success else 'failed'
+        registration.status = 'completed' if success else 'failed'
+        registration.save()
+        return redirect(
+            'payment_success' if success else 'payment_failure',
+            registration_id=registration.id
+        )
 
-        if payment_successful:
-            registration.payment_status = 'paid'
-            registration.status = 'completed'
-            registration.save()
-            return redirect('payment_success', registration_id=registration.id)
-        else:
-            registration.payment_status = 'failed'
-            registration.status = 'failed'
-            registration.save()
-            return redirect('payment_failure', registration_id=registration.id)
+    return render(request, 'registration/payment.html', {
+        'registration': registration
+    })
 
-    return render(request, 'registration/payment.html', {'registration': registration})
-
-
-# ================================
-# ✅  Payment Success
-# ================================
+# ✅ Payment result pages
 def payment_success(request, registration_id):
-    """
-    Thank-you page for successful payments.
-    """
     registration = get_object_or_404(Registration, pk=registration_id)
-    return render(request, 'registration/payment_success.html', {'registration': registration})
+    return render(request, 'registration/payment_success.html', {
+        'registration': registration
+    })
 
-
-# ================================
-# ❌  Payment Failure
-# ================================
 def payment_failure(request, registration_id):
-    """
-    Error page for failed payments.
-    """
     registration = get_object_or_404(Registration, pk=registration_id)
-    return render(request, 'registration/payment_failure.html', {'registration': registration})
+    return render(request, 'registration/payment_failure.html', {
+        'registration': registration
+    })

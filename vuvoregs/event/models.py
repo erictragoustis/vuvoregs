@@ -1,4 +1,3 @@
-# models.py
 from django.db import models
 from django.core.exceptions import ValidationError
 import json
@@ -47,11 +46,12 @@ class Event(models.Model):
     registration_start_date = models.DateTimeField(null=True, blank=True)
     registration_end_date = models.DateTimeField(null=True, blank=True)
     is_available = models.BooleanField(default=True)
+
     objects = EventManager()
-    
-    
+
     @cached_property
     def paid_athletes(self):
+        from .models import Athlete  # Avoid circular imports
         return Athlete.objects.filter(
             registration__event=self,
             registration__payment_status='paid'
@@ -73,11 +73,14 @@ class Event(models.Model):
             count=Count('athletes', distinct=True)
         )['count'] or 0
 
-        return self.max_participants is None or current_athletes < self.max_participants
+        return (
+            self.max_participants is None 
+            or current_athletes < self.max_participants
+        )
 
     def __str__(self):
         return self.name
-    
+
 class PickUpPoint(models.Model):
     event = models.ForeignKey(
         Event,
@@ -112,7 +115,10 @@ class Race(models.Model):
         if not self.event.is_registration_open():
             return False
         current_athletes = self.athlete_set.count()
-        return self.max_participants is None or current_athletes < self.max_participants
+        return (
+            self.max_participants is None 
+            or current_athletes < self.max_participants
+        )
 
     def __str__(self):
         return f"{self.name} - {self.race_type.name} - {self.race_km} KM ({self.event.name})"
@@ -150,14 +156,12 @@ class PackageOption(models.Model):
     def __str__(self):
         return self.name
 
-
 class Registration(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('completed', 'Completed'),
         ('failed', 'Failed')
     ]
-
     PAYMENT_CHOICES = [
         ('not_paid', 'Not Paid'),
         ('paid', 'Paid'),
@@ -175,23 +179,30 @@ class Registration(models.Model):
         return f"Registration {self.id} - {self.status} ({self.created_at.strftime('%Y-%m-%d')})"
 
 class Athlete(models.Model):
-    registration = models.ForeignKey(Registration, on_delete=models.CASCADE, related_name="athletes")
+    registration = models.ForeignKey(
+        Registration, 
+        on_delete=models.CASCADE, 
+        related_name="athletes"
+    )
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     email = models.EmailField()
     phone = models.CharField(max_length=20)
-    sex = models.CharField(max_length=10, choices=[('Male', 'Male'), ('Female', 'Female')])
+    sex = models.CharField(
+        max_length=10, 
+        choices=[('Male', 'Male'), ('Female', 'Female')]
+    )
     dob = models.DateField(blank=True, null=True)
     hometown = models.CharField(max_length=100)
     race = models.ForeignKey("Race", on_delete=models.CASCADE)
     package = models.ForeignKey("RacePackage", on_delete=models.CASCADE)
     bib_number = models.CharField(max_length=10, blank=True, null=True)
     pickup_point = models.ForeignKey(
-    PickUpPoint,
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    related_name='athletes'
+        PickUpPoint,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='athletes'
     )
     registration_date = models.DateTimeField(auto_now_add=True)
     selected_options = models.JSONField(null=True, blank=True)
@@ -200,10 +211,42 @@ class Athlete(models.Model):
         return f"{self.first_name} {self.last_name} - {self.race.race_type.name}"
 
     def save(self, *args, **kwargs):
-        if isinstance(self.selected_options, dict):
-            self.selected_options = json.loads(json.dumps(self.selected_options))
+        """
+        Ensure 'selected_options' is at least an empty dict so it's JSON-serializable.
+        """
+        if not isinstance(self.selected_options, dict):
+            # If it's None or any other type, default to empty dict
+            self.selected_options = {}
+
+        # Make sure the data is JSON-serializable (avoid weird nested structures)
+        self.selected_options = json.loads(json.dumps(self.selected_options))
         super().save(*args, **kwargs)
 
     def clean(self):
-        if self.selected_options is not None and not isinstance(self.selected_options, dict):
-            raise ValidationError("Selected options must be a valid JSON dictionary.")
+        """
+        Enforce that if a package has PackageOption objects,
+        the user must fill out each one in 'selected_options'.
+        """
+        super().clean()
+
+        # 🛡️ Defensive check for missing FK
+        package = getattr(self, 'package', None)
+        if package and package.packageoption_set.exists():
+            if not isinstance(self.selected_options, dict):
+                raise ValidationError("Package options must be filled out.")
+
+            expected_option_names = [
+                opt.name
+                for opt in package.packageoption_set.all()
+            ]
+
+            missing = [
+                name
+                for name in expected_option_names
+                if name not in self.selected_options or not self.selected_options[name]
+            ]
+            if missing:
+                raise ValidationError(
+                    f"You must select a valid choice for: {', '.join(missing)}"
+                )
+

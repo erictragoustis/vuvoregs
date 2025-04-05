@@ -1,149 +1,386 @@
 {% extends 'base.html' %}
-{% load crispy_forms_tags %}
+{% load crispy_forms_tags static %}
+
+{% block title %}Register for {{ race.name }}{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<style>
+    .athlete-form-card {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .athlete-form-card.border-danger {
+        animation: shake 0.2s ease-in-out 2;
+    }
+    @keyframes shake {
+        0% { transform: translateX(0); }
+        25% { transform: translateX(-4px); }
+        50% { transform: translateX(4px); }
+        75% { transform: translateX(-2px); }
+        100% { transform: translateX(0); }
+    }
+    .package-card {
+        border: 2px solid transparent;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        padding: 1rem;
+        transition: all 0.2s ease;
+        background-color: #fff;
+    }
+    .package-card:hover {
+        border-color: #0d6efd33;
+        background-color: #f1faff;
+    }
+    .package-card.selected {
+        border-color: #0d6efd;
+        background-color: #e7f1ff;
+    }
+    .package-options-container {
+        margin-top: 1rem;
+    }
+    .is-invalid {
+        border: 2px solid #dc3545;
+        background-color: #fff0f0;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<h1>Register for {{ race.name }} - {{ race.race_km }} KM</h1>
+<h1 class="mb-4">Register for <strong>{{ race.name }}</strong> – {{ race.race_km }} KM</h1>
 
-{% if race.min_participants %}
-  <p class="alert alert-info">
-    This registration requires a minimum of {{ race.min_participants }} participants. Please fill out the forms below.
-  </p>
-{% endif %}
+<div id="minParticipantAlert" class="alert alert-warning d-none" role="alert">
+  <i class="fa-solid fa-triangle-exclamation me-2"></i>
+  <span id="minParticipantAlertText"></span>
+</div>
 
 <form method="post" id="athleteForm">
-  {% csrf_token %}
-  {{ formset.management_form }}
-  <div id="athleteForms">
-    {% for form in formset %}
-      <div class="card mb-3 athlete-form">
-        <div class="card-body">
-          {{ form|crispy }}
-          <div class="package-options-container"></div>
-        </div>
+    {% csrf_token %}
+    {{ formset.management_form }}
+
+    {% if formset.non_form_errors %}
+      <div class="alert alert-danger">
+        <ul class="mb-0">
+          {% for error in formset.non_form_errors %}
+            <li>{{ error }}</li>
+          {% endfor %}
+        </ul>
       </div>
-    {% endfor %}
-  </div>
-  <button type="button" id="addAthlete" class="btn btn-secondary">Add Athlete</button>
-  <button type="submit" class="btn btn-primary">Proceed to Payment</button>
+    {% endif %}
+
+    <div id="athleteForms">
+        {% for form in formset %}
+        <div class="card athlete-form-card shadow-sm {% if form.errors %}border-danger{% endif %}" data-index="{{ forloop.counter0 }}">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fa-solid fa-user me-2"></i> 
+                    Athlete {{ forloop.counter }}
+                </h5>
+                <button type="button" class="btn btn-sm btn-outline-danger remove-athlete" {% if forloop.first %}style="display: none;"{% endif %}>
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>
+            <div class="card-body">
+                {{ form.non_field_errors }}
+
+                <div class="row mb-3">
+                    <div class="col-md-6">{{ form.first_name|as_crispy_field }}</div>
+                    <div class="col-md-6">{{ form.last_name|as_crispy_field }}</div>
+                    <div class="col-md-6">{{ form.email|as_crispy_field }}</div>
+                    <div class="col-md-6">{{ form.phone|as_crispy_field }}</div>
+                    <div class="col-md-6">{{ form.sex|as_crispy_field }}</div>
+                    <div class="col-md-6">{{ form.dob|as_crispy_field }}</div>
+                    <div class="col-md-6">{{ form.hometown|as_crispy_field }}</div>
+                    <div class="col-md-6">{{ form.pickup_point|as_crispy_field }}</div>
+                </div>
+
+                <div style="display: none;">
+                    {{ form.package }}
+                </div>
+
+                <label class="form-label mt-3">Select a Package</label>
+                <div class="row gx-2 gy-2 package-card-group">
+                    {% for pkg in form.fields.package.queryset %}
+                    <div class="col-md-6">
+                        <div class="package-card {% if form.package.value == pkg.id|stringformat:'s' %}selected{% endif %}" data-package-id="{{ pkg.id }}">
+                            <h6 class="fw-bold">{{ pkg.name }}</h6>
+                            <p class="mb-1 small">{{ pkg.description|default:"No description" }}</p>
+                            <p class="mb-0"><strong>Price:</strong> ${{ pkg.price }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="package-options-container mt-3"></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="d-flex justify-content-between mt-4">
+        <button type="button" class="btn btn-outline-secondary" id="addAthlete">
+            <i class="fa-solid fa-user-plus me-1"></i> Add Athlete
+        </button>
+        <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-credit-card me-1"></i> Proceed to Payment
+        </button>
+    </div>
+    <div id="form-errors" style="display: none;">
+        {% for form in formset %}
+          {% for error in form.non_field_errors %}
+            <div class="form-error">{{ error }}</div>
+          {% endfor %}
+        {% endfor %}
+      </div>
+
+    <!-- 🔒 Collect Django & form errors for universal toast -->
+    <div id="toast-data" style="display: none;">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="toast-msg" data-type="{{ message.tags|default:'info' }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+        {% for form in formset %}
+            {% for error in form.non_field_errors %}
+                <div class="toast-msg" data-type="error">{{ error }}</div>
+            {% endfor %}
+        {% endfor %}
+        {% if formset.non_form_errors %}
+            {% for error in formset.non_form_errors %}
+                <div class="toast-msg" data-type="warning">{{ error }}</div>
+            {% endfor %}
+        {% endif %}
+    </div>
 </form>
+
 {% endblock %}
 
 {% block js_footer %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  const formsetPrefix = "{{ formset.prefix }}";
-  let formCount = parseInt("{{ formset.total_form_count }}");
-  const athleteFormsContainer = document.getElementById('athleteForms');
+    // 🧠 Universal Toast Rendering for Django & form messages
+    document.querySelectorAll('#toast-data .toast-msg').forEach(msgDiv => {
+        const type = msgDiv.dataset.type || 'info';
+        const styleMap = {
+            error: 'danger',
+            warning: 'warning',
+            info: 'info',
+            success: 'success'
+        };
 
-  function addForm() {
-    const firstForm = document.querySelector('.athlete-form');
-    const newForm = firstForm.cloneNode(true);
-    const newFormPrefix = formCount.toString();
+        const toast = document.createElement("div");
+        toast.className = `toast align-items-center text-bg-${styleMap[type] || 'info'} border-0 mb-2`;
+        toast.setAttribute("role", "alert");
+        toast.setAttribute("aria-live", "assertive");
+        toast.setAttribute("aria-atomic", "true");
 
-    // Replace prefix in HTML for new form index
-    newForm.innerHTML = newForm.innerHTML
-      .replace(new RegExp(`${formsetPrefix}-(\\d+)-`, 'g'), `${formsetPrefix}-${newFormPrefix}-`)
-      .replace(new RegExp(`id_${formsetPrefix}-(\\d+)-`, 'g'), `id_${formsetPrefix}-${newFormPrefix}-`)
-      .replace(new RegExp(`for="${formsetPrefix}-(\\d+)-`, 'g'), `for="${formsetPrefix}-${newFormPrefix}-`);
+        toast.innerHTML = `
+          <div class="d-flex">
+            <div class="toast-body">${msgDiv.textContent}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+          </div>
+        `;
 
-    // Reset input values
-    newForm.querySelectorAll('input, select, textarea').forEach(input => {
-      if (!['hidden', 'submit', 'button'].includes(input.type)) {
-        input.value = '';
-      }
+        const container = document.querySelector('.toast-container') || (() => {
+            const c = document.createElement('div');
+            c.className = "toast-container position-fixed top-0 end-0 p-3";
+            c.style.zIndex = 1080;
+            c.style.marginTop = '4.5rem';
+            document.body.appendChild(c);
+            return c;
+        })();
+
+        container.appendChild(toast);
+        new bootstrap.Toast(toast, { delay: 6000 }).show();
     });
 
-    // Clear previous package options
-    const optionsContainer = newForm.querySelector('.package-options-container');
-    if (optionsContainer) optionsContainer.innerHTML = '';
+    const formsetPrefix = "athlete";
+    const minParticipants = {{ min_participants|default:1 }};
+    let formCount = parseInt("{{ formset.total_form_count }}");
+    const athleteFormsContainer = document.getElementById('athleteForms');
 
-    // Append form to DOM
-    athleteFormsContainer.appendChild(newForm);
+    function showMinParticipantAlert(min) {
+        const alertBox = document.getElementById("minParticipantAlert");
+        const alertText = document.getElementById("minParticipantAlertText");
 
-    // Bind package selector
-    const newPackageSelect = newForm.querySelector(`select[name$="-package"]`);
-    if (newPackageSelect) {
-      newPackageSelect.addEventListener('change', function () {
-        updatePackageOptions(newForm, this.value, newFormPrefix);
-      });
+        alertText.textContent = `This race requires at least ${min} participant(s). You can't remove more.`;
+        alertBox.classList.remove("d-none");
+
+        setTimeout(() => {
+            alertBox.classList.add("d-none");
+        }, 4000);
     }
 
-    // Update management form count
-    document.getElementById(`id_${formsetPrefix}-TOTAL_FORMS`).value = ++formCount;
-  }
+    function bindPackageCards(container) {
+        const packageCards = container.querySelectorAll('.package-card');
+        const hiddenSelect = container.querySelector('select[name$="-package"]');
+        const optionsContainer = container.querySelector('.package-options-container');
+        const index = container.getAttribute('data-index');
 
-  function updatePackageOptions(formElement, packageId, formIndex) {
-    const optionsContainer = formElement.querySelector('.package-options-container');
-    optionsContainer.innerHTML = '';
+        packageCards.forEach(card => {
+            const packageId = card.getAttribute('data-package-id');
+            card.addEventListener('click', () => {
+                packageCards.forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                hiddenSelect.value = packageId;
 
-    if (packageId) {
-      fetch(`/race/package/${packageId}/options/`)
-        .then(response => response.json())
-        .then(data => {
-          if (data && data.package_options.length > 0) {
-            data.package_options.forEach((pkgOption) => {
-              // Create label
-              const label = document.createElement('label');
-              label.textContent = `${pkgOption.name}:`;
-              label.setAttribute('for', `id_${formIndex}_package_option_${pkgOption.id}`);
+                fetch(`/race/package/${packageId}/options/`)
+                    .then(res => res.json())
+                    .then(data => {
+                        optionsContainer.innerHTML = '';
+                        data.package_options.forEach(option => {
+                            const label = document.createElement('label');
+                            label.textContent = option.name;
+                            label.classList.add('form-label');
 
-              // Create select
-              const select = document.createElement('select');
-              select.id = `id_${formIndex}_package_option_${pkgOption.id}`;
-              select.name = `athlete-${formIndex}-option-${pkgOption.id}`;
-              select.classList.add('form-control');
+                            const select = document.createElement('select');
+                            select.name = `athlete-${index}-option-${option.id}`;
+                            select.classList.add('form-select', 'mb-2');
 
-              // Hidden field to keep name (optional use)
-              const hiddenInput = document.createElement('input');
-              hiddenInput.type = 'hidden';
-              hiddenInput.name = `athlete-${formIndex}-option-${pkgOption.id}-name`;
-              hiddenInput.value = pkgOption.name;
+                            const defaultOpt = document.createElement('option');
+                            defaultOpt.disabled = true;
+                            defaultOpt.selected = true;
+                            defaultOpt.textContent = "Select an option";
+                            select.appendChild(defaultOpt);
 
-              const defaultOption = document.createElement('option');
-              defaultOption.value = '';
-              defaultOption.disabled = true;
-              defaultOption.selected = true;
-              defaultOption.textContent = 'Select an option';
-              select.appendChild(defaultOption);
+                            option.options_json.forEach(opt => {
+                                const o = document.createElement('option');
+                                o.value = opt;
+                                o.textContent = opt;
+                                select.appendChild(o);
+                            });
 
-              (pkgOption.options_json || []).forEach(opt => {
-                const option = document.createElement('option');
-                option.value = typeof opt === 'string' ? opt : opt.option;
-                option.textContent = typeof opt === 'string' ? opt : (opt.label || opt.option);
-                select.appendChild(option);
-              });
+                            const hiddenInput = document.createElement('input');
+                            hiddenInput.type = 'hidden';
+                            hiddenInput.name = `athlete-${index}-option-${option.id}-name`;
+                            hiddenInput.value = option.name;
 
-              optionsContainer.appendChild(label);
-              optionsContainer.appendChild(select);
-              optionsContainer.appendChild(hiddenInput);
+                            optionsContainer.appendChild(label);
+                            optionsContainer.appendChild(select);
+                            optionsContainer.appendChild(hiddenInput);
+                        });
+                    });
             });
-          }
-        })
-        .catch(error => {
-          console.error("Error loading package options:", error);
-          optionsContainer.innerHTML = `<p class="text-danger">Error loading options.</p>`;
+
+            if (hiddenSelect.value === packageId) {
+                card.classList.add('selected');
+                card.click();
+            }
         });
     }
-  }
 
-  // Bind package selectors on existing forms (but prevent duplicate fetches)
-  athleteFormsContainer.querySelectorAll('.athlete-form').forEach((formElement, index) => {
-    const packageSelect = formElement.querySelector('select[name$="-package"]');
-    const optionsContainer = formElement.querySelector('.package-options-container');
+    function addForm() {
+    const existingForm = document.querySelector('.athlete-form-card');
+    const newForm = existingForm.cloneNode(true);
+    const newFormPrefix = formCount;
 
-    if (packageSelect) {
-      packageSelect.addEventListener('change', function () {
-        updatePackageOptions(formElement, this.value, index);
-      });
+    // 🔁 Update all input IDs, names, labels for new index
+    newForm.innerHTML = newForm.innerHTML
+        .replaceAll(new RegExp(formsetPrefix + '-(\\d+)-', 'g'), `${formsetPrefix}-${newFormPrefix}-`)
+        .replaceAll(new RegExp('id_' + formsetPrefix + '-(\\d+)-', 'g'), `id_${formsetPrefix}-${newFormPrefix}-`)
+        .replaceAll(new RegExp('for="' + formsetPrefix + '-(\\d+)-', 'g'), `for="${formsetPrefix}-${newFormPrefix}-`);
 
-      // Only run AJAX if Django didn't render options already
-      if (packageSelect.value && optionsContainer && optionsContainer.children.length === 0) {
-        updatePackageOptions(formElement, packageSelect.value, index);
-      }
+    // Set data-index attribute
+    newForm.setAttribute('data-index', formCount);
+
+    // 🧼 Reset all inputs
+    newForm.querySelectorAll('input, select, textarea').forEach(input => {
+        if (!['hidden', 'csrfmiddlewaretoken'].includes(input.type)) input.value = '';
+    });
+
+    // 🧼 Clear validation styles and errors
+    newForm.querySelectorAll('.is-invalid').forEach(input => input.classList.remove('is-invalid'));
+    newForm.classList.remove('border-danger');
+    newForm.querySelectorAll('.invalid-feedback, .errorlist').forEach(el => el.remove());
+
+    // Show remove button
+    const removeBtn = newForm.querySelector('.remove-athlete');
+    if (removeBtn) removeBtn.style.display = 'inline-block';
+
+    // Append to DOM
+    athleteFormsContainer.appendChild(newForm);
+    newForm.scrollIntoView({ behavior: 'smooth', block: 'center' }); // ✅ scroll
+
+    // Update total form count
+    formCount++;
+    document.getElementById(`id_${formsetPrefix}-TOTAL_FORMS`).value = formCount;
+
+    // 🏷️ Update form header with correct number and icon
+    const header = newForm.querySelector('.card-header h5');
+    if (header) {
+        const icon = header.querySelector('i');
+        header.innerHTML = '';
+        if (icon) header.appendChild(icon);
+        header.append(` Athlete ${formCount}`);
     }
-  });
 
-  document.getElementById('addAthlete').addEventListener('click', addForm);
+    // Re-bind interactions
+    bindRemoveButtons();
+    bindPackageCards(newForm);
+    }
+
+
+    function bindRemoveButtons() {
+        document.querySelectorAll('.remove-athlete').forEach(button => {
+            button.onclick = function () {
+                const card = this.closest('.athlete-form-card');
+                const allCards = document.querySelectorAll('.athlete-form-card');
+
+                if (allCards.length <= minParticipants) {
+                    showMinParticipantAlert(minParticipants);
+                    return;
+                }
+
+                card.remove();
+
+                const remainingCards = document.querySelectorAll('.athlete-form-card');
+                remainingCards.forEach((cardEl, newIndex) => {
+                    const header = cardEl.querySelector('.card-header h5');
+                    if (header) {
+                        const icon = header.querySelector('i');
+                        header.innerHTML = '';
+                        if (icon) header.appendChild(icon);
+                        header.append(` Athlete ${newIndex + 1}`);
+                    }
+                    cardEl.setAttribute('data-index', newIndex);
+                });
+
+                formCount = remainingCards.length;
+                document.getElementById(`id_${formsetPrefix}-TOTAL_FORMS`).value = formCount;
+            };
+        });
+    }
+
+    document.querySelectorAll('.athlete-form-card').forEach(cardForm => bindPackageCards(cardForm));
+    bindRemoveButtons();
+    document.getElementById('addAthlete').addEventListener('click', addForm);
+
+    // ✅ Toast error summary if any form has border-danger
+    if (document.querySelector('.athlete-form-card.border-danger')) {
+        const toast = document.createElement("div");
+        toast.className = "toast align-items-center text-bg-danger border-0";
+        toast.setAttribute("role", "alert");
+        toast.setAttribute("aria-live", "assertive");
+        toast.setAttribute("aria-atomic", "true");
+
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">Some forms have errors. Please review and fix them.</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+
+        const container = document.createElement('div');
+        container.className = "toast-container position-fixed top-0 end-0 p-3";
+        container.style.zIndex = 1080;
+        container.style.marginTop = '4.5rem';
+        container.appendChild(toast);
+        document.body.appendChild(container);
+
+        new bootstrap.Toast(toast, { delay: 5000 }).show();
+    }
 });
 </script>
 {% endblock %}
