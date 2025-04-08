@@ -4,6 +4,8 @@ import json
 from django.utils.timezone import now
 from django.db.models import Q, Count, F
 from django.utils.functional import cached_property
+from django.contrib.auth.models import User
+from django.conf import settings  # this gives access to AUTH_USER_MODEL
 
 class EventManager(models.Manager):
     def available(self):
@@ -39,9 +41,10 @@ class RaceManager(models.Manager):
 class Event(models.Model):
     name = models.CharField(max_length=255)
     date = models.DateField()
-    image = models.ImageField(upload_to='events/', blank=True, null=True)
+    image = models.ImageField(upload_to='images/event_images/', blank=True, null=True)
     location = models.CharField(max_length=255)
     description = models.TextField(blank=True)
+    organizer = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE, related_name="events")
     max_participants = models.PositiveIntegerField(null=True, blank=True)
     registration_start_date = models.DateTimeField(null=True, blank=True)
     registration_end_date = models.DateTimeField(null=True, blank=True)

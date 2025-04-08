@@ -1,0 +1,4 @@
+nav a.nav-link:hover {
+    background-color: #343a40;
+    border-radius: 5px;
+}

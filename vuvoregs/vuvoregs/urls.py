@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.conf.urls.static import static
+from django.contrib import admin
 from django.urls import path, include
 """
 URL configuration for vuvoregs project.
@@ -22,7 +23,12 @@ from django.urls import path
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('dashboard/', include('dashboard.urls', namespace='dashboard')),
+    path('tools/', include('event.urls_admin', namespace='event_admin')),  # ✅ no conflict
     path('', include('event.urls')),  # Use 'event.urls'
+    path('accounts/', include('allauth.urls')),  # Allauth routes
+    
+    
 ]
 
 if settings.DEBUG:

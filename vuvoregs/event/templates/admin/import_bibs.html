@@ -1,9 +1,19 @@
 {% extends "admin/base_site.html" %}
+{% load static %}
+
 {% block content %}
-<h1>📥 Import Bib Numbers</h1>
-<form method="post" enctype="multipart/form-data">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button class="btn btn-primary">Import</button>
-</form>
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">📥 Import Bib Numbers</h3>
+  </div>
+  <div class="card-body">
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit" class="btn btn-primary">
+        <i class="fas fa-upload me-1"></i> Upload
+      </button>
+    </form>
+  </div>
+</div>
 {% endblock %}

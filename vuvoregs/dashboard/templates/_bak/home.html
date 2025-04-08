@@ -1,0 +1,10 @@
+{% extends 'dashboard/base.html' %}
+
+{% block content %}
+<h2>Dashboard Overview</h2>
+<ul>
+    <li>Total Registrations: {{ total_registrations }}</li>
+    <li>Paid: {{ paid_count }}</li>
+    <li>Unpaid: {{ unpaid_count }}</li>
+</ul>
+{% endblock %}

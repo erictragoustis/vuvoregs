@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Race Admin Dashboard</title>
+    <link rel="stylesheet" href="{% static 'dashboard/css/style.css' %}">
+</head>
+<body>
+    <header>
+        <h1>Race Admin Dashboard</h1>
+        <nav>
+            <a href="{% url 'dashboard:home' %}">Home</a>
+            <!-- Add links for Registrations, Events, etc. -->
+        </nav>
+    </header>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

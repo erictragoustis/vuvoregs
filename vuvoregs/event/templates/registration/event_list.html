@@ -32,10 +32,12 @@
                         <!-- 🖼 Image + Badge -->
                         <div class="position-relative overflow-hidden">
                             {% if event.image %}
-                                <img src="{{ event.image.url }}" class="card-img-top" alt="{{ event.name }}">
-                            {% else %}
-                                <img src="{% static 'img/placeholder.jpg' %}" class="card-img-top" alt="No image">
-                            {% endif %}
+    <img src="{{ event.image.url }}" class="card-img-top" alt="{{ event.name }}" loading="lazy">
+    {% else %}
+    <div class="card-img-top bg-secondary d-flex align-items-center justify-content-center text-white" style="height: 400px;">
+        <span class="fw-bold">{{ event.name }}</span>
+    </div>
+{% endif %}
                             <span class="badge position-absolute top-0 start-0 m-2 px-3 py-2 bg-success">
                                 Registration Open
                             </span>

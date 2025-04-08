@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -40,18 +41,26 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',  # required by allauth
     #packages
     'crispy_forms',
     'crispy_bootstrap5',
     'django_json_widget',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
     #apps
+    'accounts',
     'event.templatetags',
     'event',
+    'dashboard',
 ]
-
+SITE_ID = 1
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -60,11 +69,11 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'vuvoregs.urls'
-
+AUTH_USER_MODEL = 'accounts.User'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -139,17 +148,37 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 
 JAZZMIN_SETTINGS = {
     "custom_links": {
-        "event": [  # ← matches your app name exactly
+        "event": [
             {
-                "name": "📤 Export Event Athletes",
-                "url": "admin:export-athletes",
+                "name": "Export Event Athletes",
+                "url": "event_admin:export-athletes",  # ✅ new namespace
                 "icon": "fas fa-download"
             },
             {
-                "name": "📥 Import Bib Numbers",
-                "url": "admin:import-bibs",
+                "name": "Import Bib Numbers",
+                "url": "event_admin:import-bibs",
                 "icon": "fas fa-upload"
             },
         ]
     },
 }
+
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+
+# All auth settings
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+ACCOUNT_LOGIN_METHODS = {"email"}  # or {"username", "email", "username_email"}
+
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
