@@ -199,6 +199,7 @@ class Athlete(models.Model):
     )
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
+    team = models.CharField(max_length=100, blank=True, null=True)
     email = models.EmailField()
     phone = models.CharField(max_length=20)
     sex = models.CharField(
@@ -227,6 +228,9 @@ class Athlete(models.Model):
     related_name="agreements"
     )
     agrees_to_terms = models.BooleanField(default=False)
+    
+    class Meta:
+        ordering = ['-registration__created_at']  # newest first
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} - {self.race.race_type.name}"

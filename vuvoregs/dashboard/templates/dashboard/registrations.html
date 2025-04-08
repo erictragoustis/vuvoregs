@@ -4,24 +4,54 @@
 {% block content %}
 <h2 class="mb-4">Registrations</h2>
 
-<!-- Filter Form -->
-<form method="get" class="row g-3 mb-4">
-    <!-- Event Selector -->
-    <div class="col-md-4">
-        <label for="event" class="form-label">Select Event:</label>
+<!-- Compact Filter Form -->
+<form method="get" class="row row-cols-1 row-cols-md-auto g-3 align-items-end mb-4">
+    <div class="col">
+        <label for="event" class="form-label">Event</label>
         <select name="event" id="event" class="form-select" onchange="this.form.submit()">
-            <option value="">-- Select Event --</option>
+            <option value="">All Events</option>
             {% for event in events %}
-                <option value="{{ event.id }}" {% if selected_event_id|default:'' == event.id|stringformat:"s" %}selected{% endif %}>
+                <option value="{{ event.id }}" {% if event.id|stringformat:"s" == selected_event_id %}selected{% endif %}>
                     {{ event.name }}
                 </option>
             {% endfor %}
         </select>
     </div>
 
-    <!-- Per Page Selector -->
-    <div class="col-md-2">
-        <label for="per_page" class="form-label">Per Page:</label>
+    {% if selected_event %}
+        <div class="col">
+            <label for="race" class="form-label">Race</label>
+            <select name="race" id="race" class="form-select" onchange="this.form.submit()">
+                <option value="">All Races</option>
+                {% for race in races %}
+                    <option value="{{ race.id }}" {% if race.id|stringformat:"s" == race_id %}selected{% endif %}>
+                        {{ race.name }} ({{ race.race_km }} km)
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col">
+            <label for="package" class="form-label">Package</label>
+            <select name="package" id="package" class="form-select" onchange="this.form.submit()">
+                <option value="">All Packages</option>
+                {% for package in packages %}
+                    <option value="{{ package.id }}" {% if package.id|stringformat:"s" == package_id %}selected{% endif %}>
+                        {{ package.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+    {% endif %}
+
+    <div class="col">
+        <label for="search" class="form-label">Search</label>
+        <input type="text" name="search" id="search" class="form-control"
+               value="{{ search_query }}" placeholder="Name or email">
+    </div>
+
+    <div class="col">
+        <label for="per_page" class="form-label">Per Page</label>
         <select name="per_page" id="per_page" class="form-select" onchange="this.form.submit()">
             {% for count in per_page_choices %}
                 <option value="{{ count }}" {% if per_page == count %}selected{% endif %}>{{ count }}</option>
@@ -29,71 +59,69 @@
         </select>
     </div>
 
-    <!-- Search -->
-    <div class="col-md-4">
-        <label for="search" class="form-label">Search Athletes:</label>
-        <input type="text" name="search" id="search" class="form-control" value="{{ search_query }}" placeholder="Search by name or email">
-    </div>
-
-    <!-- Submit -->
-    <div class="col-md-2 align-self-end">
+    <div class="col">
         <button type="submit" class="btn btn-primary w-100">
-            <i class="fa fa-search me-1"></i>Search
+            <i class="fa fa-filter me-1"></i>Apply
         </button>
     </div>
 </form>
 
 {% if selected_event %}
-    <h4>Event: {{ selected_event.name }}</h4>
-    <p>Total Registrations: {{ registrations.count }}</p>
-    <p>Total Athletes: {{ athletes.paginator.count }}</p>
+    <h5>Showing results for: <strong>{{ selected_event.name }}</strong></h5>
+    <p>Total Registrations: {{ registrations.count }} | Total Athletes: {{ athletes.paginator.count }}</p>
 
     <!-- Athletes Table -->
-    <table class="table table-bordered table-hover mt-4">
-        <thead class="table-dark">
-            <tr>
-                <th>ID</th>
-                <th>Athlete</th>
-                <th>Email</th>
-                <th>Race</th>
-                <th>Package</th>
-                {% for key in option_keys %}
-                    <th>{{ key }}</th>
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover mt-3">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Athlete</th>
+                    <th>Email</th>
+                    <th>Race</th>
+                    <th>Package</th>
+                    {% for key in option_keys %}
+                        <th>{{ key }}</th>
+                    {% endfor %}
+                    <th>Payment</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for athlete in athletes %}
+                <tr>
+                    <td>{{ athlete.id }}</td>
+                    <td>{{ athlete.first_name }} {{ athlete.last_name }}</td>
+                    <td>{{ athlete.email }}</td>
+                    <td>{{ athlete.race.name }} ({{ athlete.race.race_km }} KM)</td>
+                    <td>{{ athlete.package.name }}</td>
+                    {% for key in option_keys %}
+                    <td>
+                        {% with val=athlete.selected_options|get_item:key %}
+                            {{ val|flatten_value|default:"—" }}
+                        {% endwith %}
+                    </td>
+                    {% endfor %}
+                    <td>
+                        {% if athlete.registration.payment_status == 'paid' %}
+                            <span class="badge bg-success">Paid</span>
+                        {% elif athlete.registration.payment_status == 'failed' %}
+                            <span class="badge bg-danger">Failed</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Not Paid</span>
+                        {% endif %}
+                    </td>
+                </tr>
                 {% endfor %}
-                <th>Payment</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for athlete in athletes %}
-            <tr>
-                <td>{{ athlete.id }}</td>
-                <td>{{ athlete.first_name }} {{ athlete.last_name }}</td>
-                <td>{{ athlete.email }}</td>
-                <td>{{ athlete.race.name }} ({{ athlete.race.race_km }} KM)</td>
-                <td>{{ athlete.package.name }}</td>
-                {% for key in option_keys %}
-                    <td>{{ athlete.selected_options|get_item:key|default:"—" }}</td>
-                {% endfor %}
-                <td>
-                    {% if athlete.registration.payment_status == 'paid' %}
-                        <span class="badge bg-success">Paid</span>
-                    {% elif athlete.registration.payment_status == 'failed' %}
-                        <span class="badge bg-danger">Failed</span>
-                    {% else %}
-                        <span class="badge bg-secondary">Not Paid</span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+            </tbody>
+        </table>
+    </div>
 
     <!-- Pagination -->
     <nav>
         <ul class="pagination justify-content-center">
             {% if athletes.has_previous %}
                 <li class="page-item">
-                    <a class="page-link" href="?event={{ selected_event_id }}&per_page={{ per_page }}&search={{ search_query }}&page={{ athletes.previous_page_number }}">Previous</a>
+                    <a class="page-link" href="?event={{ selected_event_id }}&race={{ race_id }}&package={{ package_id }}&per_page={{ per_page }}&search={{ search_query }}&page={{ athletes.previous_page_number }}">Previous</a>
                 </li>
             {% else %}
                 <li class="page-item disabled"><span class="page-link">Previous</span></li>
@@ -104,21 +132,20 @@
                     <li class="page-item active"><span class="page-link">{{ num }}</span></li>
                 {% else %}
                     <li class="page-item">
-                        <a class="page-link" href="?event={{ selected_event_id }}&per_page={{ per_page }}&search={{ search_query }}&page={{ num }}">{{ num }}</a>
+                        <a class="page-link" href="?event={{ selected_event_id }}&race={{ race_id }}&package={{ package_id }}&per_page={{ per_page }}&search={{ search_query }}&page={{ num }}">{{ num }}</a>
                     </li>
                 {% endif %}
             {% endfor %}
 
             {% if athletes.has_next %}
                 <li class="page-item">
-                    <a class="page-link" href="?event={{ selected_event_id }}&per_page={{ per_page }}&search={{ search_query }}&page={{ athletes.next_page_number }}">Next</a>
+                    <a class="page-link" href="?event={{ selected_event_id }}&race={{ race_id }}&package={{ package_id }}&per_page={{ per_page }}&search={{ search_query }}&page={{ athletes.next_page_number }}">Next</a>
                 </li>
             {% else %}
                 <li class="page-item disabled"><span class="page-link">Next</span></li>
             {% endif %}
         </ul>
     </nav>
-
 {% else %}
     <div class="alert alert-info mt-4">Select an event to view athlete registrations.</div>
 {% endif %}

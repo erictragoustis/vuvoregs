@@ -1,32 +1,56 @@
 {% extends 'dashboard/base.html' %}
-
 {% block content %}
 <h2 class="mb-4">Dashboard Overview</h2>
 
-<div class="row g-4">
-    <div class="col-md-4">
+<div class="row row-cols-1 row-cols-md-3 g-4">
+    <div class="col">
         <div class="card text-bg-primary">
             <div class="card-body">
-                <h5 class="card-title"><i class="fa-solid fa-users me-2"></i>Total Registrations</h5>
-                <p class="card-text display-6">{{ total_registrations }}</p>
+                <h5 class="card-title">Total Registrations</h5>
+                <p class="display-5">{{ total_regs }}</p>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col">
         <div class="card text-bg-success">
             <div class="card-body">
-                <h5 class="card-title"><i class="fa-solid fa-circle-check me-2"></i>Paid</h5>
-                <p class="card-text display-6">{{ paid_count }}</p>
+                <h5 class="card-title">Today</h5>
+                <p class="display-5">{{ today_regs }}</p>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card text-bg-danger">
+    <div class="col">
+        <div class="card text-bg-warning">
             <div class="card-body">
-                <h5 class="card-title"><i class="fa-solid fa-circle-xmark me-2"></i>Unpaid</h5>
-                <p class="card-text display-6">{{ unpaid_count }}</p>
+                <h5 class="card-title">Last 7 Days</h5>
+                <p class="display-5">{{ last_7_days_regs }}</p>
             </div>
         </div>
     </div>
 </div>
+<h4 class="mt-5">Upcoming Events</h4>
+
+{% if upcoming_events %}
+<div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+    {% for event in upcoming_events %}
+    <div class="col">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">{{ event.name }}</h5>
+                <p class="card-text">
+                    <strong>Date:</strong> {{ event.date }}<br>
+                    <strong>Location:</strong> {{ event.location }}<br>
+                    <strong>Registrations:</strong> {{ event.registrations.count }}
+                </p>
+                <a href="{% url 'dashboard:event_dashboard' event.id %}" class="btn btn-primary">
+                    View Analytics
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p class="text-muted">No upcoming events.</p>
+{% endif %}
 {% endblock %}

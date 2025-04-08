@@ -120,8 +120,9 @@ def export_athletes_to_csv(modeladmin, request, queryset):
 @admin.register(Athlete)
 class AthleteAdmin(admin.ModelAdmin):
     form = AthleteAdminForm
+    ordering = ['-registration__created_at']
     list_display = (
-        'first_name', 'last_name', 'email', 'race', 'package',
+        'registration__created_at','first_name', 'last_name', 'email', 'race', 'package',
         'pickup_point', 'get_status', 'agreed_to_terms', 'formatted_selected_options'
     )
     list_filter = ('race__event', 'race', 'package', 'pickup_point')

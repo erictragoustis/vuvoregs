@@ -1,0 +1,146 @@
+{% extends 'dashboard/base.html' %}
+{% block content %}
+<h2 class="mb-4">{{ event.name }} – Event Overview</h2>
+
+<!-- Stats -->
+<div class="row row-cols-1 row-cols-md-4 g-4 mb-4">
+    <div class="col">
+        <div class="card text-bg-primary"><div class="card-body">
+            <h6>Total Registrations</h6><p class="display-6">{{ total_regs }}</p>
+        </div></div>
+    </div>
+    <div class="col">
+        <div class="card text-bg-success"><div class="card-body">
+            <h6>Paid</h6><p class="display-6">{{ paid_regs }}</p>
+        </div></div>
+    </div>
+    <div class="col">
+        <div class="card text-bg-danger"><div class="card-body">
+            <h6>Unpaid</h6><p class="display-6">{{ unpaid_regs }}</p>
+        </div></div>
+    </div>
+    <div class="col">
+        <div class="card text-bg-secondary"><div class="card-body">
+            <h6>Total Athletes</h6><p class="display-6">{{ total_athletes }}</p>
+        </div></div>
+    </div>
+</div>
+
+<!-- Chart Filters -->
+<form id="chart-filter-form" class="row row-cols-1 row-cols-md-auto g-3 align-items-end mb-4">
+    <div class="col">
+        <label class="form-label">Race</label>
+        <select name="race" class="form-select">
+            <option value="">All Races</option>
+            {% for race in races %}
+                <option value="{{ race.id }}">{{ race.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col">
+        <label class="form-label">Interval</label>
+        <select name="interval" class="form-select">
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+        </select>
+    </div>
+    <div class="col form-check mt-4">
+        <input class="form-check-input" type="checkbox" name="cumulative" id="cumulative">
+        <label class="form-check-label" for="cumulative">Cumulative</label>
+    </div>
+</form>
+
+<!-- Chart Block -->
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">Athlete Registrations Over Time</h5>
+
+        <!-- Spinner -->
+        <div id="chart-loading" class="text-center my-3" style="display: none;">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+
+        <!-- Chart Canvas -->
+        <canvas id="eventChart" height="100"></canvas>
+
+        <!-- No Data Message -->
+        <p id="no-data-msg" class="text-center text-muted mt-3" style="display: none;">
+            No data available for the selected filters.
+        </p>
+    </div>
+</div>
+
+<!-- Chart.js + AJAX Logic -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('eventChart').getContext('2d');
+    let chart;
+
+    function loadChartData() {
+        const form = document.getElementById('chart-filter-form');
+        const formData = new FormData(form);
+        const params = new URLSearchParams(formData);
+        const cumulative = formData.get('cumulative') === 'on';
+        params.set('cumulative', cumulative);
+
+        const spinner = document.getElementById('chart-loading');
+        const noDataMsg = document.getElementById('no-data-msg');
+        const formElements = form.querySelectorAll('select, input');
+
+        spinner.style.display = 'block';
+        noDataMsg.style.display = 'none';
+        formElements.forEach(el => el.disabled = true);
+
+        fetch("{% url 'dashboard:event_chart_data' event.id %}?" + params.toString())
+            .then(response => response.json())
+            .then(data => {
+                if (chart) chart.destroy();
+
+                if (!data.labels.length || !data.counts.length) {
+                    noDataMsg.style.display = 'block';
+                    return;
+                }
+
+                chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'Registrations',
+                            data: data.counts,
+                            borderColor: '#007bff',
+                            backgroundColor: 'rgba(0,123,255,0.2)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { stepSize: 1 }
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(() => {
+                noDataMsg.textContent = "Something went wrong loading the chart.";
+                noDataMsg.style.display = 'block';
+            })
+            .finally(() => {
+                spinner.style.display = 'none';
+                formElements.forEach(el => el.disabled = false);
+            });
+    }
+
+    // Initial load + update on any filter change
+    loadChartData();
+    document.getElementById('chart-filter-form').addEventListener('change', loadChartData);
+</script>
+{% endblock %}
