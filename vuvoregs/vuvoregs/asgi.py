@@ -1,5 +1,4 @@
-"""
-ASGI config for vuvoregs project.
+"""ASGI config for vuvoregs project.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 

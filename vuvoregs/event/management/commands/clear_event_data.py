@@ -1,22 +1,32 @@
 from django.core.management.base import BaseCommand
+
 from event.models import (
-    Athlete, Registration, Race, Event,
-    RacePackage, PackageOption, PickUpPoint, TermsAndConditions
+    Athlete,
+    Event,
+    PackageOption,
+    Payment,
+    PickUpPoint,
+    Race,
+    RacePackage,
+    Registration,
+    TermsAndConditions,
 )
 
 
 class Command(BaseCommand):
-    help = "🚨 DANGER: Deletes all event-related data. Keeps users and unrelated models safe."
+    help = "Delete all seeded event, registration, and payment data."
 
     def handle(self, *args, **kwargs):
+        self.stdout.write(self.style.WARNING("⚠️ Deleting all event-related data..."))
+
         models = [
-            Athlete, Registration, RacePackage, PackageOption,
-            PickUpPoint, TermsAndConditions, Race, Event
+            Payment, Athlete, Registration,
+            PackageOption, RacePackage, Race,
+            TermsAndConditions, PickUpPoint, Event
         ]
 
         for model in models:
-            count = model.objects.count()
-            model.objects.all().delete()
-            self.stdout.write(self.style.WARNING(f"🗑️ Deleted {count} from {model.__name__}"))
+            deleted_count, _ = model.objects.all().delete()
+            self.stdout.write(f"Deleted {deleted_count} from {model.__name__}")
 
-        self.stdout.write(self.style.SUCCESS("✅ All event-related data cleared."))
+        self.stdout.write(self.style.SUCCESS("✅ All event-related data deleted."))

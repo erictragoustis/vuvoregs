@@ -1,7 +1,15 @@
+"""URL configuration for the vuvoregs project.
+
+This module defines the URL patterns for the project, 
+including routes for the admin interface,
+dashboard, tools, events, and user authentication.
+"""
+
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import include, path
+
 """
 URL configuration for vuvoregs project.
 
@@ -18,17 +26,13 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.contrib import admin
-from django.urls import path
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('dashboard/', include('dashboard.urls', namespace='dashboard')),
-    path('tools/', include('event.urls_admin', namespace='event_admin')),  # ✅ no conflict
-    path('', include('event.urls')),  # Use 'event.urls'
-    path('accounts/', include('allauth.urls')),  # Allauth routes
-    
-    
+    path('tools/', include('event.urls_admin', namespace='event_admin')),
+    path('', include('event.urls')), 
+    path('accounts/', include('allauth.urls')),
 ]
 
 if settings.DEBUG:

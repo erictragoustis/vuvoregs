@@ -180,3 +180,4 @@ vuvoregs/vuvoregs.code-workspace
 
 # Exclude machine-specific vs code settings
 .vscode/settings.json
+vuvoregs/pyproject.toml

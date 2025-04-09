@@ -1,10 +1,21 @@
-# event/urls_admin.py
-from django.urls import path
-from .admin import import_bibs_view, export_athletes_view
+"""URL configuration for the admin views of the 'event' app.
 
-app_name = 'event_admin'
+This module defines URL patterns for administrative tasks such as importing bibs
+and exporting athlete data. These views are used to manage event-related data
+through the admin interface.
+"""
+
+from django.urls import path
+
+from .admin import export_athletes_view, import_bibs_view
+
+app_name = "event_admin"
 
 urlpatterns = [
-    path('import-bibs/', import_bibs_view, name='import-bibs'),
-    path('export-athletes/', export_athletes_view, name='export-athletes'),
+    path(
+        "import-bibs/", import_bibs_view, name="import-bibs"
+    ),  # URL for importing bibs
+    path(
+        "export-athletes/", export_athletes_view, name="export-athletes"
+    ),  # URL for exporting athlete data  # noqa: E501
 ]

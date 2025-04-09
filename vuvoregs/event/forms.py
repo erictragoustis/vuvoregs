@@ -1,114 +1,189 @@
-from django import forms
-from django.forms import inlineformset_factory, BaseInlineFormSet
-from django.core.exceptions import ValidationError
-from django.utils import timezone
-from .models import Event
+"""Forms for handling event registration, athlete data entry, and special pricing logic."""  # noqa: E501
 
-from .models import Athlete, Registration, RacePackage, PickUpPoint
+# Standard Django form imports
+from django import forms
+from django.core.exceptions import ValidationError
+from django.forms import BaseInlineFormSet, inlineformset_factory
+from django.utils import timezone
+
+# Project-specific models
+from .models import (
+    Athlete,
+    Event,
+    PackageSpecialPrice,
+    PickUpPoint,
+    Registration,
+)
 
 
 class AthleteForm(forms.ModelForm):
+    """Form for capturing individual athlete data during race registration."""
+
     class Meta:
+        """Metadata for AthleteForm, defining model, fields, and widgets."""
+
         model = Athlete
         fields = [
-            'first_name', 'last_name', 'team' ,'email', 'phone',
-            'sex', 'dob', 'pickup_point', 'hometown', 'package'
+            "first_name",
+            "last_name",
+            "team",
+            "email",
+            "phone",
+            "sex",
+            "dob",
+            "pickup_point",
+            "hometown",
+            "package",
+            "agrees_to_terms",
         ]
         widgets = {
-            'dob': forms.DateInput(
-                format='%Y-%m-%d',
-                attrs={'type': 'date', 'class': 'form-control'}
+            "dob": forms.DateInput(
+                format="%Y-%m-%d", attrs={"type": "date", "class": "form-control"}
             )
         }
 
     def __init__(self, *args, **kwargs):
-        race = kwargs.pop('race', None)
-        packages = kwargs.pop('packages', None)
+        """Initialize the AthleteForm with optional race and packages context.
+
+        Parameters
+        ----------
+        *args : tuple
+            Positional arguments for the form.
+        **kwargs : dict
+            Keyword arguments for the form, including 'race' and 'packages'.
+        """
+        race = kwargs.pop("race", None)
+        packages = kwargs.pop("packages", None)
         super().__init__(*args, **kwargs)
 
         self.request = None
         self.form_index = None
         self.race = race
 
+        # 🔁 Limit package options
         if packages is not None:
-            self.fields['package'].queryset = packages
-        self.fields['package'].required = True
-        self.fields['package'].error_messages = {
-            'required': 'Please select a package.'
-        }
+            self.fields["package"].queryset = packages
+        self.fields["package"].required = True
+        self.fields["package"].error_messages = {"required": "Please select a package."}
 
+        # 🎯 Limit pickup points to event
         if race:
-            self.fields['pickup_point'].queryset = race.event.pickup_points.all()
+            self.fields["pickup_point"].queryset = race.event.pickup_points.all()
         else:
-            self.fields['pickup_point'].queryset = PickUpPoint.objects.none()
+            self.fields["pickup_point"].queryset = PickUpPoint.objects.none()
 
-        # 🔐 Terms & Conditions agreement per event
-        terms = getattr(race.event, 'terms', None) if race else None
+        # 🔒 Terms & Conditions agreement per event
+        terms = getattr(race.event, "terms", None) if race else None
         if terms:
-            self.fields['agrees_to_terms'] = forms.BooleanField(
-                label=f"I agree to the Terms & Conditions (v{terms.version}) for {race.event.name}",
+            self.fields["agrees_to_terms"] = forms.BooleanField(
+                label=f"I agree to the Terms & Conditions (v{terms.version}) for {race.event.name}",  # noqa: E501
                 required=True,
-                error_messages={'required': 'You must agree to the Terms & Conditions to register.'}
+                error_messages={
+                    "required": "You must agree to the Terms & Conditions to register."
+                },
             )
 
     def clean(self):
+        """Validate form data, enforce T&Cs, extract selected options and special prices."""  # noqa: E501
         cleaned_data = super().clean()
 
-        # 🔒 Enforce T&Cs requirement
-        terms = getattr(self.race.event, 'terms', None)
+        terms = getattr(self.race.event, "terms", None)
         if terms:
             self.instance.agreed_to_terms = terms
             self.instance.agreed_at = timezone.now()
         else:
             raise ValidationError("This event has no Terms & Conditions set.")
 
-        if not cleaned_data.get('package'):
-            self.add_error('package', "You must select a package.")
+        if not cleaned_data.get("package"):
+            self.add_error("package", "You must select a package.")
 
+        # 🧠 Extract selected package options from request POST
         if self.request and self.form_index is not None:
             prefix = "athlete"
             index = self.form_index
 
             selected_options = {}
             for key in self.request.POST:
-                if key.startswith(f'{prefix}-{index}-option-') and not key.endswith('-name'):
-                    option_id = key.split(f'{prefix}-{index}-option-')[-1]
-                    option_name_key = f'{key}-name'
-                    option_name = self.request.POST.get(option_name_key, f'Option {option_id}')
+                if key.startswith(f"{prefix}-{index}-option-") and not key.endswith(
+                    "-name"
+                ):
+                    option_id = key.split(f"{prefix}-{index}-option-")[-1]
+                    option_name_key = f"{key}-name"
+                    option_name = self.request.POST.get(
+                        option_name_key, f"Option {option_id}"
+                    )
                     values = self.request.POST.getlist(key)
                     if values and any(v.strip() for v in values):
                         selected_options[option_name] = values
-            self.instance.selected_options = selected_options if selected_options else {}
+            self.instance.selected_options = (
+                selected_options if selected_options else {}
+            )
+
+            # 💸 Capture special price selected via JS
+            sp_key = f"{prefix}-{index}-special_price_option"
+            sp_id = self.request.POST.get(sp_key)
+            if sp_id:
+                try:
+                    sp = PackageSpecialPrice.objects.get(id=sp_id)
+                    self.instance.special_price_option = sp
+                except PackageSpecialPrice.DoesNotExist:
+                    self.add_error(None, "The selected special price is invalid.")
 
         return cleaned_data
 
 
 class MinParticipantsFormSet(BaseInlineFormSet):
+    """Formset enforcing minimum participant count on a race."""
+
     def __init__(self, *args, **kwargs):
-        self.race = kwargs.pop('race', None)
+        """Initialize the formset with race context.
+
+        Parameters
+        ----------
+        *args : tuple
+            Positional arguments for the formset.
+        **kwargs : dict
+            Keyword arguments for the formset, including 'race'.
+        """
+        self.race = kwargs.pop("race", None)
         super().__init__(*args, **kwargs)
 
     def add_fields(self, form, index):
+        """Add additional fields to the form in the formset.
+
+        Parameters
+        ----------
+        form : forms.Form
+            The form to which additional fields are added.
+        index : int
+            The index of the form in the formset.
+        """
         super().add_fields(form, index)
         form.empty_permitted = False
-        form.request = getattr(self, 'request', None)
+        form.request = getattr(self, "request", None)
         form.form_index = index
         form.race = self.race
 
     def clean(self):
+        """Ensure the minimum number of participants is met."""
         super().clean()
         if self.race and self.race.min_participants:
             filled_forms = sum(
-                1 for form in self.forms
-                if form.has_changed() and not form.cleaned_data.get('DELETE', False)
+                1
+                for form in self.forms
+                if form.has_changed() and not form.cleaned_data.get("DELETE", False)
             )
             if filled_forms < self.race.min_participants:
                 raise ValidationError(
-                    f"This race requires at least {self.race.min_participants} participants."
+                    f"This race requires at least {self.race.min_participants} participants."  # noqa: E501
                 )
 
 
 def athlete_formset_factory(race):
+    """Factory for generating an AthleteFormSet tied to a Registration.
+
+    Adds race context and sets form count based on race's min_participants.
+    """
     extra_forms = race.min_participants if race and race.min_participants else 1
     AthleteFormSet = inlineformset_factory(
         parent_model=Registration,
@@ -120,12 +195,20 @@ def athlete_formset_factory(race):
     )
     return AthleteFormSet
 
+
 class BibNumberImportForm(forms.Form):
+    """Form for uploading a CSV to import bib numbers for athletes."""
+
     csv_file = forms.FileField(
         label="CSV file",
         help_text="Upload a CSV with columns: id;bib_number",
-        required=True
+        required=True,
     )
-    
+
+
 class ExportEventAthletesForm(forms.Form):
-    event = forms.ModelChoiceField(queryset=Event.objects.all(), required=True, label="Select Event")
+    """Form to select an event for exporting its athlete registrations."""
+
+    event = forms.ModelChoiceField(
+        queryset=Event.objects.all(), required=True, label="Select Event"
+    )

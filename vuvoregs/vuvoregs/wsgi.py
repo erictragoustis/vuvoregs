@@ -1,5 +1,4 @@
-"""
-WSGI config for vuvoregs project.
+"""WSGI config for vuvoregs project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 

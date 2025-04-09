@@ -2,22 +2,6 @@
 {% load crispy_forms_tags static %}
 
 {% block title %}Register for {{ race.name }} {% endblock %}
-<!-- Terms Modal -->
-<div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="termsModalLabel">Terms & Conditions</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        {{ race.event.terms.content|safe }}
-      </div>
-    </div>
-  </div>
-</div>
-
-
 
 {% block css %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -62,22 +46,6 @@
         background-color: #fff0f0;
     }
 </style>
-
-<!-- Terms Modal -->
-<div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="termsModalLabel">Terms & Conditions</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        {{ race.event.terms.content|safe }}
-      </div>
-    </div>
-  </div>
-</div>
-
 {% endblock %}
 
 {% block content %}
@@ -129,8 +97,8 @@
                     <div class="col-md-6">{{ form.pickup_point|as_crispy_field }}</div>
                 </div>
 
-                <div style="display: none;">
-                    {{ form.package }}
+                <div class="d-none">
+                    {{ form.package|as_crispy_field }}
                 </div>
 
                 <label class="form-label mt-3">Select a Package</label>
@@ -140,24 +108,24 @@
                         <div class="package-card {% if form.package.value == pkg.id|stringformat:'s' %}selected{% endif %}" data-package-id="{{ pkg.id }}">
                             <h6 class="fw-bold">{{ pkg.name }}</h6>
                             <p class="mb-1 small">{{ pkg.description|default:"No description" }}</p>
-                            <p class="mb-0"><strong>Price:</strong> ${{ pkg.price }}</p>
+                            <p class="mb-0"><strong>Price:</strong> €{{ pkg.price }}</p>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
 
                 <div class="package-options-container mt-3"></div>
-<div class="form-check mt-4">
-    {{ form.agrees_to_terms }}
-    <label class="form-check-label" for="{{ form.agrees_to_terms.id_for_label }}">
-        {{ form.agrees_to_terms.label }} (<a href="#" data-bs-toggle="modal" data-bs-target="#termsModal">view</a>)
-    </label>
-    {% if form.agrees_to_terms.errors %}
-        <div class="text-danger small">{{ form.agrees_to_terms.errors.0 }}</div>
-    {% endif %}
-</div>
+                <div class="special-price-options-container mt-3"></div>
 
-
+                <div class="form-check mt-4">
+                    {{ form.agrees_to_terms }}
+                    <label class="form-check-label" for="{{ form.agrees_to_terms.id_for_label }}">
+                        {{ form.agrees_to_terms.label }} (<a href="#" data-bs-toggle="modal" data-bs-target="#termsModal">view</a>)
+                    </label>
+                    {% if form.agrees_to_terms.errors %}
+                        <div class="text-danger small">{{ form.agrees_to_terms.errors.0 }}</div>
+                    {% endif %}
+                </div>
             </div>
         </div>
         {% endfor %}
@@ -171,34 +139,7 @@
             <i class="fa-solid fa-credit-card me-1"></i> Proceed to Payment
         </button>
     </div>
-    <div id="form-errors" style="display: none;">
-        {% for form in formset %}
-          {% for error in form.non_field_errors %}
-            <div class="form-error">{{ error }}</div>
-          {% endfor %}
-        {% endfor %}
-      </div>
-
-    <!-- 🔒 Collect Django & form errors for universal toast -->
-    <div id="toast-data" style="display: none;">
-        {% if messages %}
-            {% for message in messages %}
-                <div class="toast-msg" data-type="{{ message.tags|default:'info' }}">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-        {% for form in formset %}
-            {% for error in form.non_field_errors %}
-                <div class="toast-msg" data-type="error">{{ error }}</div>
-            {% endfor %}
-        {% endfor %}
-        {% if formset.non_form_errors %}
-            {% for error in formset.non_form_errors %}
-                <div class="toast-msg" data-type="warning">{{ error }}</div>
-            {% endfor %}
-        {% endif %}
-    </div>
 </form>
-
 
 <!-- Terms Modal -->
 <div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
@@ -214,70 +155,24 @@
     </div>
   </div>
 </div>
-
 {% endblock %}
 
 {% block js_footer %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // 🧠 Universal Toast Rendering for Django & form messages
-    document.querySelectorAll('#toast-data .toast-msg').forEach(msgDiv => {
-        const type = msgDiv.dataset.type || 'info';
-        const styleMap = {
-            error: 'danger',
-            warning: 'warning',
-            info: 'info',
-            success: 'success'
-        };
-
-        const toast = document.createElement("div");
-        toast.className = `toast align-items-center text-bg-${styleMap[type] || 'info'} border-0 mb-2`;
-        toast.setAttribute("role", "alert");
-        toast.setAttribute("aria-live", "assertive");
-        toast.setAttribute("aria-atomic", "true");
-
-        toast.innerHTML = `
-          <div class="d-flex">
-            <div class="toast-body">${msgDiv.textContent}</div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-          </div>
-        `;
-
-        const container = document.querySelector('.toast-container') || (() => {
-            const c = document.createElement('div');
-            c.className = "toast-container position-fixed top-0 end-0 p-3";
-            c.style.zIndex = 1080;
-            c.style.marginTop = '4.5rem';
-            document.body.appendChild(c);
-            return c;
-        })();
-
-        container.appendChild(toast);
-        new bootstrap.Toast(toast, { delay: 6000 }).show();
-    });
-
     const formsetPrefix = "athlete";
     const minParticipants = {{ min_participants|default:1 }};
     let formCount = parseInt("{{ formset.total_form_count }}");
-    const athleteFormsContainer = document.getElementById('athleteForms');
-
-    function showMinParticipantAlert(min) {
-        const alertBox = document.getElementById("minParticipantAlert");
-        const alertText = document.getElementById("minParticipantAlertText");
-
-        alertText.textContent = `This race requires at least ${min} participant(s). You can't remove more.`;
-        alertBox.classList.remove("d-none");
-
-        setTimeout(() => {
-            alertBox.classList.add("d-none");
-        }, 4000);
-    }
 
     function bindPackageCards(container) {
         const packageCards = container.querySelectorAll('.package-card');
         const hiddenSelect = container.querySelector('select[name$="-package"]');
         const optionsContainer = container.querySelector('.package-options-container');
+        const specialContainer = container.querySelector('.special-price-options-container');
         const index = container.getAttribute('data-index');
+
+        // 💾 Store preselected special price value (from POST/render)
+        const previouslySelectedSpecialPrice = container.querySelector(`input[name="athlete-${index}-special_price_option"]:checked`)?.value;
 
         packageCards.forEach(card => {
             const packageId = card.getAttribute('data-package-id');
@@ -286,10 +181,36 @@ document.addEventListener('DOMContentLoaded', function () {
                 card.classList.add('selected');
                 hiddenSelect.value = packageId;
 
+                optionsContainer.innerHTML = '';
+                specialContainer.innerHTML = '';
+
+                fetch(`/race/package/${packageId}/special-prices/?race_id={{ race.id }}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        const specialsHtml = data.special_prices.map(sp => `
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio"
+                                       name="athlete-${index}-special_price_option"
+                                       id="specialPrice-${sp.id}-${index}"
+                                       value="${sp.id}"
+                                       ${sp.id.toString() === previouslySelectedSpecialPrice ? 'checked' : ''}>
+                                <label class="form-check-label" for="specialPrice-${sp.id}-${index}">
+                                    ${sp.label} (€${sp.price})
+                                </label>
+                            </div>
+                        `).join('');
+
+                        if (specialsHtml) {
+                            specialContainer.innerHTML = `
+                                <label class="form-label">Do you qualify for any special prices?</label>
+                                ${specialsHtml}
+                            `;
+                        }
+                    });
+
                 fetch(`/race/package/${packageId}/options/`)
                     .then(res => res.json())
                     .then(data => {
-                        optionsContainer.innerHTML = '';
                         data.package_options.forEach(option => {
                             const label = document.createElement('label');
                             label.textContent = option.name;
@@ -323,64 +244,63 @@ document.addEventListener('DOMContentLoaded', function () {
                         });
                     });
             });
-
-            if (hiddenSelect.value === packageId) {
-                card.classList.add('selected');
-                card.click();
-            }
         });
+
+        // ✅ If a package is already selected, trigger click to load everything
+        const selectedPackageId = hiddenSelect.value;
+        const selectedCard = container.querySelector(`.package-card[data-package-id="${selectedPackageId}"]`);
+        if (selectedCard) {
+            selectedCard.classList.add('selected');
+            selectedCard.click();
+        }
     }
 
     function addForm() {
-    const existingForm = document.querySelector('.athlete-form-card');
-    const newForm = existingForm.cloneNode(true);
-    const newFormPrefix = formCount;
+        const existingForm = document.querySelector('.athlete-form-card');
+        const newForm = existingForm.cloneNode(true);
+        const newFormPrefix = formCount;
 
-    // 🔁 Update all input IDs, names, labels for new index
-    newForm.innerHTML = newForm.innerHTML
-        .replaceAll(new RegExp(formsetPrefix + '-(\\d+)-', 'g'), `${formsetPrefix}-${newFormPrefix}-`)
-        .replaceAll(new RegExp('id_' + formsetPrefix + '-(\\d+)-', 'g'), `id_${formsetPrefix}-${newFormPrefix}-`)
-        .replaceAll(new RegExp('for="' + formsetPrefix + '-(\\d+)-', 'g'), `for="${formsetPrefix}-${newFormPrefix}-`);
+        newForm.innerHTML = newForm.innerHTML
+            .replaceAll(new RegExp(formsetPrefix + '-(\\d+)-', 'g'), `${formsetPrefix}-${newFormPrefix}-`)
+            .replaceAll(new RegExp('id_' + formsetPrefix + '-(\\d+)-', 'g'), `id_${formsetPrefix}-${newFormPrefix}-`)
+            .replaceAll(new RegExp('for="' + formsetPrefix + '-(\\d+)-', 'g'), `for="${formsetPrefix}-${newFormPrefix}-`);
 
-    // Set data-index attribute
-    newForm.setAttribute('data-index', formCount);
+        newForm.setAttribute('data-index', newFormPrefix);
 
-    // 🧼 Reset all inputs
-    newForm.querySelectorAll('input, select, textarea').forEach(input => {
-        if (!['hidden', 'csrfmiddlewaretoken'].includes(input.type)) input.value = '';
-    });
+        newForm.querySelectorAll('input, select, textarea').forEach(input => {
+            if (!['hidden', 'csrfmiddlewaretoken'].includes(input.type)) {
+                if (input.type === 'checkbox') {
+                    input.checked = false; // ✅ important!
+                } else {
+                    input.value = '';
+                }
+            }
+        });
 
-    // 🧼 Clear validation styles and errors
-    newForm.querySelectorAll('.is-invalid').forEach(input => input.classList.remove('is-invalid'));
-    newForm.classList.remove('border-danger');
-    newForm.querySelectorAll('.invalid-feedback, .errorlist').forEach(el => el.remove());
+        newForm.querySelectorAll('.is-invalid').forEach(input => input.classList.remove('is-invalid'));
+        newForm.classList.remove('border-danger');
+        newForm.querySelectorAll('.invalid-feedback, .errorlist').forEach(el => el.remove());
 
-    // Show remove button
-    const removeBtn = newForm.querySelector('.remove-athlete');
-    if (removeBtn) removeBtn.style.display = 'inline-block';
+        const removeBtn = newForm.querySelector('.remove-athlete');
+        if (removeBtn) removeBtn.style.display = 'inline-block';
 
-    // Append to DOM
-    athleteFormsContainer.appendChild(newForm);
-    newForm.scrollIntoView({ behavior: 'smooth', block: 'center' }); // ✅ scroll
+        document.getElementById('athleteForms').appendChild(newForm);
+        newForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-    // Update total form count
-    formCount++;
-    document.getElementById(`id_${formsetPrefix}-TOTAL_FORMS`).value = formCount;
+        formCount++;
+        document.getElementById(`id_${formsetPrefix}-TOTAL_FORMS`).value = formCount;
 
-    // 🏷️ Update form header with correct number and icon
-    const header = newForm.querySelector('.card-header h5');
-    if (header) {
-        const icon = header.querySelector('i');
-        header.innerHTML = '';
-        if (icon) header.appendChild(icon);
-        header.append(` Athlete ${formCount}`);
+        const header = newForm.querySelector('.card-header h5');
+        if (header) {
+            const icon = header.querySelector('i');
+            header.innerHTML = '';
+            if (icon) header.appendChild(icon);
+            header.append(` Athlete ${formCount}`);
+        }
+
+        bindPackageCards(newForm);
+        bindRemoveButtons();
     }
-
-    // Re-bind interactions
-    bindRemoveButtons();
-    bindPackageCards(newForm);
-    }
-
 
     function bindRemoveButtons() {
         document.querySelectorAll('.remove-athlete').forEach(button => {
@@ -389,7 +309,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 const allCards = document.querySelectorAll('.athlete-form-card');
 
                 if (allCards.length <= minParticipants) {
-                    showMinParticipantAlert(minParticipants);
+                    const alert = document.getElementById("minParticipantAlert");
+                    const alertText = document.getElementById("minParticipantAlertText");
+                    alertText.textContent = `This race requires at least ${minParticipants} participant(s). You can't remove more.`;
+                    alert.classList.remove("d-none");
+                    setTimeout(() => alert.classList.add("d-none"), 4000);
                     return;
                 }
 
@@ -397,6 +321,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 const remainingCards = document.querySelectorAll('.athlete-form-card');
                 remainingCards.forEach((cardEl, newIndex) => {
+                    cardEl.setAttribute('data-index', newIndex);
+
+                    // Update header
                     const header = cardEl.querySelector('.card-header h5');
                     if (header) {
                         const icon = header.querySelector('i');
@@ -404,59 +331,29 @@ document.addEventListener('DOMContentLoaded', function () {
                         if (icon) header.appendChild(icon);
                         header.append(` Athlete ${newIndex + 1}`);
                     }
-                    cardEl.setAttribute('data-index', newIndex);
+
+                    // Update all form input names and IDs
+                    cardEl.querySelectorAll('[name], [id], label[for]').forEach(el => {
+                        ['name', 'id', 'for'].forEach(attr => {
+                            const val = el.getAttribute(attr);
+                            if (val && val.includes(`${formsetPrefix}-`)) {
+                                const updated = val.replace(new RegExp(`${formsetPrefix}-\\d+-`, 'g'), `${formsetPrefix}-${newIndex}-`);
+                                el.setAttribute(attr, updated);
+                            }
+                        });
+                    });
                 });
 
                 formCount = remainingCards.length;
                 document.getElementById(`id_${formsetPrefix}-TOTAL_FORMS`).value = formCount;
+
             };
         });
     }
 
-    document.querySelectorAll('.athlete-form-card').forEach(cardForm => bindPackageCards(cardForm));
-    bindRemoveButtons();
+    document.querySelectorAll('.athlete-form-card').forEach(bindPackageCards);
     document.getElementById('addAthlete').addEventListener('click', addForm);
-
-    // ✅ Toast error summary if any form has border-danger
-    if (document.querySelector('.athlete-form-card.border-danger')) {
-        const toast = document.createElement("div");
-        toast.className = "toast align-items-center text-bg-danger border-0";
-        toast.setAttribute("role", "alert");
-        toast.setAttribute("aria-live", "assertive");
-        toast.setAttribute("aria-atomic", "true");
-
-        toast.innerHTML = `
-            <div class="d-flex">
-                <div class="toast-body">Some forms have errors. Please review and fix them.</div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-            </div>
-        `;
-
-        const container = document.createElement('div');
-        container.className = "toast-container position-fixed top-0 end-0 p-3";
-        container.style.zIndex = 1080;
-        container.style.marginTop = '4.5rem';
-        container.appendChild(toast);
-        document.body.appendChild(container);
-
-        new bootstrap.Toast(toast, { delay: 5000 }).show();
-    }
+    bindRemoveButtons();
 });
 </script>
-
-<!-- Terms Modal -->
-<div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="termsModalLabel">Terms & Conditions</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        {{ race.event.terms.content|safe }}
-      </div>
-    </div>
-  </div>
-</div>
-
 {% endblock %}

@@ -1,12 +1,25 @@
-# event/tests/test_views.py
+"""Test cases for the event registration views.
+
+Covers:
+- Valid multi-athlete form submissions
+- Package option selections
+- Validation of required fields and minimum participant rules
+"""
 
 from django.test import TestCase
 from django.urls import reverse
-from event.models import Event, Package, PackageOption, Registration, Athlete
+
+from event.models import Athlete, Event, Package, PackageOption
+
 
 class ViewTests(TestCase):
+    """Test suite for verifying the registration view logic and validation."""
+
     def setUp(self):
-        self.event = Event.objects.create(name="Test Event", slug="test-event", distance=5)
+        """Create sample event, package, and option for testing form submissions."""
+        self.event = Event.objects.create(
+            name="Test Event", slug="test-event", distance=5
+        )
         self.package = Package.objects.create(name="5K", event=self.event)
         self.option = PackageOption.objects.create(
             name="T-Shirt",
@@ -16,6 +29,10 @@ class ViewTests(TestCase):
         )
 
     def test_register_view_valid(self):
+        """Submitting a valid registration form.
+
+        with an option should create an Athlete.
+        """
         url = reverse("event:register", kwargs={"slug": self.event.slug})
         data = {
             "athlete-TOTAL_FORMS": "1",
@@ -34,6 +51,10 @@ class ViewTests(TestCase):
         self.assertTrue(Athlete.objects.filter(email="john@example.com").exists())
 
     def test_register_view_missing_required_option(self):
+        """Submitting a form.
+
+        without selecting a required option should show a validation message.
+        """
         url = reverse("event:register", kwargs={"slug": self.event.slug})
         data = {
             "athlete-TOTAL_FORMS": "1",
@@ -44,7 +65,7 @@ class ViewTests(TestCase):
             "athlete-0-last_name": "Doe",
             "athlete-0-email": "john@example.com",
             "athlete-0-package": self.package.id,
-            # Missing selected option intentionally
+            # No option selected
         }
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, 200)

@@ -1,13 +1,15 @@
-from django.contrib.admin.views.decorators import staff_member_required
-from django.shortcuts import render, get_object_or_404
-from event.models import Event, Registration, Athlete
-from django.db.models import Q
-from django.core.paginator import Paginator
-from django.db.models.functions import TruncDate, TruncWeek, TruncMonth
-from django.db.models import Count
 import json
-from django.utils.timezone import now, timedelta
+
+from django.contrib.admin.views.decorators import staff_member_required
+from django.core.paginator import Paginator
+from django.db.models import Count, Q
+from django.db.models.functions import TruncDate, TruncMonth, TruncWeek
 from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, render
+from django.utils.timezone import now, timedelta
+
+from event.models import Athlete, Event, Registration
+
 
 @staff_member_required
 def dashboard_home(request):
@@ -29,6 +31,7 @@ def dashboard_home(request):
     }
 
     return render(request, 'dashboard/home.html', context)
+
 
 @staff_member_required
 def event_dashboard(request, event_id):
@@ -179,6 +182,7 @@ def registration_list(request):
         'packages': packages,
     }
     return render(request, 'dashboard/registrations.html', context)
+
 
 @staff_member_required
 def event_chart_data(request, event_id):
