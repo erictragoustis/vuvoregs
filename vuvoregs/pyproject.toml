@@ -1,0 +1,48 @@
+[tool.ruff]
+# Base configuration
+line-length = 88
+target-version = "py311"  # Use your Python version: py310, py39, etc.
+fix = true
+preview = true
+
+# Include rulesets
+extend-select = [
+  "E",   # pycodestyle errors
+  "F",   # pyflakes (undefined names, etc.)
+  "I",   # isort (import sorting)
+  "D",   # pydocstyle (docstring linting)
+  "DJ",  # ruff-django rules
+  "UP",  # pyupgrade (modern syntax)
+  "B",   # flake8-bugbear (common bugs)
+]
+
+# Recommended exclusions
+exclude = [
+  "migrations",      # Django migrations
+  ".venv",           # Virtualenv
+  "venv",
+  "env",
+  "__pycache__",
+  "node_modules",
+  "staticfiles",
+  "media"
+]
+
+# Optional: treat these as internal packages
+# so ruff separates them from 3rd-party libs in imports
+src = ["vuvoregs", "event"]  # adjust to your actual app/module names
+
+[tool.ruff.isort]
+known-first-party = ["event", "vuvoregs"]  # adjust to your apps
+combine-as-imports = true
+force-sort-within-sections = true
+
+[tool.ruff.pydocstyle]
+convention = "google"  # or "numpy", "pep257"
+
+[tool.ruff.format]
+# Optional Black-compatible formatting (like trailing commas)
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
