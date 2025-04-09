@@ -181,3 +181,4 @@ vuvoregs/vuvoregs.code-workspace
 # Exclude machine-specific vs code settings
 .vscode/settings.json
 vuvoregs/pyproject.toml
+vuvoregs/vuvoregs/media/images/event_images
