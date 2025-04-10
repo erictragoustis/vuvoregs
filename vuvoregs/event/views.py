@@ -13,6 +13,8 @@ events, and the payment system.
 # Built-in libraries
 import json
 
+from cities_light.models import City, Country, Region
+
 # Django core imports
 from django.contrib import messages
 from django.db import transaction
@@ -26,7 +28,7 @@ from django.views.decorators.http import require_GET, require_POST
 from payments import RedirectNeeded
 
 # Local app imports
-from .forms import athlete_formset_factory
+from .forms import BillingForm, athlete_formset_factory
 from .models import (
     Event,
     PackageSpecialPrice,
@@ -86,7 +88,7 @@ def registration(request, race_id):
     if not event.is_registration_open():
         return render(request, "registration/closed.html", {"event": event})
 
-    packages = RacePackage.objects.filter(event=event)
+    packages = RacePackage.objects.filter(event=event, races=race)
     AthleteFormSet = athlete_formset_factory(race)
 
     if request.method == "POST":
@@ -173,6 +175,11 @@ def confirm_registration(request, registration_id):
     """Show confirmation screen for a registration with all entered athlete data."""
     registration = get_object_or_404(Registration, pk=registration_id)
     athletes = registration.athletes.select_related("package", "race")
+    form = BillingForm(
+        initial={
+            "billing_email": athletes[0].email if athletes else "",
+        }
+    )
     return render(
         request,
         "registration/confirm.html",
@@ -180,6 +187,7 @@ def confirm_registration(request, registration_id):
             "registration": registration,
             "athletes": athletes,
             "event": registration.event,
+            "billing_form": form,
         },
     )
 
@@ -317,6 +325,13 @@ def create_payment(request, registration_id):
     if registration.payment:
         print("⚠️ Already has payment, skipping creation.")
         return redirect(registration.payment.get_process_url())
+    # Get the country ID from POST
+    country_id = request.POST.get("billing_country")
+    region_id = request.POST.get("billing_region")
+    city_id = request.POST.get("billing_city")
+    country = Country.objects.filter(id=country_id).first()
+    region = Region.objects.filter(id=region_id).first()
+    city = City.objects.filter(id=city_id).first()
 
     payment = Payment.objects.create(
         variant="dummy",
@@ -327,10 +342,10 @@ def create_payment(request, registration_id):
         billing_last_name=request.POST.get("billing_last_name"),
         billing_address_1=request.POST.get("billing_address_1"),
         billing_address_2=request.POST.get("billing_address_2"),
-        billing_city=request.POST.get("billing_city"),
         billing_postcode=request.POST.get("billing_postcode"),
-        billing_country_area=request.POST.get("billing_country_area"),
-        billing_country_code=request.POST.get("billing_country_code"),
+        billing_country_code=country.code2 if country else None,
+        billing_country_area=region.name if region else None,
+        billing_city=city.name if city else None,
         billing_email=request.POST.get("billing_email"),
         billing_phone=request.POST.get("billing_phone"),
         status="confirmed",  # or 'waiting' if using a real provider
@@ -346,3 +361,15 @@ def create_payment(request, registration_id):
         return redirect(payment.get_process_url())
     except RedirectNeeded as redirect_to:
         return redirect(str(redirect_to))
+
+
+def load_regions(request):
+    country_id = request.GET.get("country_id")
+    regions = Region.objects.filter(country_id=country_id).order_by("name")
+    return JsonResponse({"regions": list(regions.values("id", "name"))})
+
+
+def load_cities(request):
+    region_id = request.GET.get("region_id")
+    cities = City.objects.filter(region_id=region_id).order_by("name")
+    return JsonResponse({"cities": list(cities.values("id", "name"))})

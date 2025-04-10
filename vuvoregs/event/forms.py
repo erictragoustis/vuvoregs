@@ -1,10 +1,10 @@
 """Forms for handling event registration, athlete data entry, and special pricing logic."""  # noqa: E501
 
 # Standard Django form imports
+from cities_light.models import City, Country, Region
 from django import forms
 from django.core.exceptions import ValidationError
 from django.forms import BaseInlineFormSet, inlineformset_factory
-from django.utils import timezone
 
 # Project-specific models
 from .models import (
@@ -14,6 +14,29 @@ from .models import (
     PickUpPoint,
     Registration,
 )
+
+
+class BillingForm(forms.Form):  # noqa: D101
+    billing_first_name = forms.CharField(max_length=100)
+    billing_last_name = forms.CharField(max_length=100)
+    billing_address_1 = forms.CharField(max_length=255)
+    billing_address_2 = forms.CharField(max_length=255, required=False)
+    billing_postcode = forms.CharField(max_length=20)
+    billing_country = forms.ModelChoiceField(
+        queryset=Country.objects.all(),
+        widget=forms.Select(attrs={"class": "form-select", "id": "billing-country"}),
+    )
+    billing_region = forms.ModelChoiceField(
+        queryset=Region.objects.none(),
+        widget=forms.Select(attrs={"class": "form-select", "id": "billing-region"}),
+        required=False,
+    )
+    billing_city = forms.ModelChoiceField(
+        queryset=City.objects.none(),
+        widget=forms.Select(attrs={"class": "form-select", "id": "billing-city"}),
+    )
+    billing_phone = forms.CharField(max_length=20)
+    billing_email = forms.EmailField()
 
 
 class AthleteForm(forms.ModelForm):
@@ -90,7 +113,6 @@ class AthleteForm(forms.ModelForm):
         terms = getattr(self.race.event, "terms", None)
         if terms:
             self.instance.agreed_to_terms = terms
-            self.instance.agreed_at = timezone.now()
         else:
             raise ValidationError("This event has no Terms & Conditions set.")
 

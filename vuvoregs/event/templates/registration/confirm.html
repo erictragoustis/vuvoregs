@@ -1,82 +1,82 @@
 {% extends 'base.html' %}
+{% load crispy_forms_tags %}
 {% block title %}Confirm Registration{% endblock %}
-
 {% block content %}
-<div class="container my-5">
-  <h2 class="mb-4">Review and Confirm Your Registration</h2>
-
-  <div class="card mb-4">
-    <div class="card-header">
-      <strong>Event:</strong> {{ event.name }} — {{ event.date }}
-    </div>
-    <div class="card-body">
-      <h5>Athletes</h5>
-      <ul class="list-group">
-        {% for athlete in athletes %}
-          <li class="list-group-item d-flex justify-content-between align-items-center">
-            {{ athlete.first_name }} {{ athlete.last_name }} – {{ athlete.package.name }}
-            <span>€{{ athlete.get_final_price }}</span>
-          </li>
-        {% endfor %}
-      </ul>
-      <div class="mt-3 text-end">
-        <strong>Total:</strong> €{{ registration.total_amount }}
+  <div class="container my-5">
+    <h2 class="mb-4">Review and Confirm Your Registration</h2>
+    <!-- ✅ Event + Athletes Summary -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <strong>Event:</strong> {{ event.name }} — {{ event.date }}
+      </div>
+      <div class="card-body">
+        <h5>Athletes</h5>
+        <ul class="list-group">
+          {% for athlete in athletes %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              {{ athlete.first_name }} {{ athlete.last_name }} – {{ athlete.package.name }}
+              <span>€{{ athlete.get_final_price }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+        <div class="mt-3 text-end">
+          <strong>Total:</strong> €{{ registration.total_amount }}
+        </div>
       </div>
     </div>
+    <!-- ✅ Billing Form -->
+    <form method="post" action="{% url 'create_payment' registration.id %}">
+      {% csrf_token %}
+      <h5 class="mb-3">Billing Information</h5>
+      <div class="row g-3">
+        <div class="col-md-6">{{ billing_form.billing_first_name|as_crispy_field }}</div>
+        <div class="col-md-6">{{ billing_form.billing_last_name|as_crispy_field }}</div>
+        <div class="col-md-12">{{ billing_form.billing_address_1|as_crispy_field }}</div>
+        <div class="col-md-12">{{ billing_form.billing_address_2|as_crispy_field }}</div>
+        <div class="col-md-4">{{ billing_form.billing_postcode|as_crispy_field }}</div>
+        <div class="col-md-4">{{ billing_form.billing_phone|as_crispy_field }}</div>
+        <div class="col-md-4">{{ billing_form.billing_email|as_crispy_field }}</div>
+        <div class="col-md-4">{{ billing_form.billing_country|as_crispy_field }}</div>
+        <div class="col-md-4">{{ billing_form.billing_region|as_crispy_field }}</div>
+        <div class="col-md-4">{{ billing_form.billing_city|as_crispy_field }}</div>
+      </div>
+      <div class="mt-4 text-end">
+        <button type="submit" class="btn btn-primary btn-lg">
+          <i class="fa-solid fa-lock me-1"></i> Proceed to Payment
+        </button>
+      </div>
+    </form>
   </div>
+  <!-- ✅ Dynamic City/Region JavaScript -->
+  <script>
+  const regionSelect = document.getElementById("billing-region");
+  const citySelect = document.getElementById("billing-city");
 
-  <form method="post" action="{% url 'create_payment' registration.id %}">
-    {% csrf_token %}
-    <h5 class="mb-3">Billing Information</h5>
+  document.getElementById("billing-country").addEventListener("change", function () {
+    const countryId = this.value;
+    fetch(`/ajax/load-regions/?country_id=${countryId}`)
+      .then(response => response.json())
+      .then(data => {
+        regionSelect.innerHTML = '<option value="">Select Region</option>';
+        data.regions.forEach(region => {
+          const option = new Option(region.name, region.id);
+          regionSelect.add(option);
+        });
+        citySelect.innerHTML = '<option value="">Select City</option>';
+      });
+  });
 
-    <div class="row g-3">
-      <div class="col-md-6">
-        <label class="form-label">First Name</label>
-        <input type="text" name="billing_first_name" class="form-control" required>
-      </div>
-      <div class="col-md-6">
-        <label class="form-label">Last Name</label>
-        <input type="text" name="billing_last_name" class="form-control" required>
-      </div>
-      <div class="col-md-12">
-        <label class="form-label">Address Line 1</label>
-        <input type="text" name="billing_address_1" class="form-control" required>
-      </div>
-      <div class="col-md-12">
-        <label class="form-label">Address Line 2</label>
-        <input type="text" name="billing_address_2" class="form-control">
-      </div>
-      <div class="col-md-6">
-        <label class="form-label">City</label>
-        <input type="text" name="billing_city" class="form-control" required>
-      </div>
-      <div class="col-md-3">
-        <label class="form-label">Postcode</label>
-        <input type="text" name="billing_postcode" class="form-control" required>
-      </div>
-      <div class="col-md-3">
-        <label class="form-label">Country Code</label>
-        <input type="text" name="billing_country_code" class="form-control" value="GR" required>
-      </div>
-      <div class="col-md-6">
-        <label class="form-label">Region / State</label>
-        <input type="text" name="billing_country_area" class="form-control">
-      </div>
-      <div class="col-md-6">
-        <label class="form-label">Phone</label>
-        <input type="tel" name="billing_phone" class="form-control">
-      </div>
-      <div class="col-md-12">
-        <label class="form-label">Email</label>
-        <input type="email" name="billing_email" class="form-control" value="{{ athletes.0.email }}" required>
-      </div>
-    </div>
-
-    <div class="mt-4 text-end">
-      <button type="submit" class="btn btn-primary btn-lg">
-        <i class="fa-solid fa-lock"></i> Proceed to Payment
-      </button>
-    </div>
-  </form>
-</div>
+  document.getElementById("billing-region").addEventListener("change", function () {
+    const regionId = this.value;
+    fetch(`/ajax/load-cities/?region_id=${regionId}`)
+      .then(response => response.json())
+      .then(data => {
+        citySelect.innerHTML = '<option value="">Select City</option>';
+        data.cities.forEach(city => {
+          const option = new Option(city.name, city.id);
+          citySelect.add(option);
+        });
+      });
+  });
+  </script>
 {% endblock %}

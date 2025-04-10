@@ -1,9 +1,0 @@
-{% extends 'base.html' %}
-
-{% block title %}Payment Failed{% endblock %}
-
-{% block content %}
-<h2>Payment Failed</h2>
-<p>Unfortunately, the payment was not successful. Please try again.</p>
-<a href="{% url 'home' %}" class="btn btn-secondary">Try Again</a>
-{% endblock %}

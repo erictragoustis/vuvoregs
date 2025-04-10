@@ -33,9 +33,18 @@ from event.models import (
 
 
 class Command(BaseCommand):
+    """Management command to seed the database with mock event data."""
+
     help = "Seed events, races, packages, and athletes"
 
     def add_arguments(self, parser):
+        """Add custom arguments to the management command.
+
+        Parameters
+        ----------
+        parser : ArgumentParser
+            The argument parser to which custom arguments are added.
+        """
         parser.add_argument(
             "--debug",
             action="store_true",
@@ -145,7 +154,7 @@ class Command(BaseCommand):
 
             for race_index, race in enumerate(races):
                 self.stdout.write(
-                    f"→ Creating athletes for race {race_index + 1}/{len(races)}: {race.name}"
+                    f"→ Creating athletes for race {race_index + 1}/{len(races)}: {race.name}"  # noqa: E501
                 )  # noqa: E501
                 athletes_needed = 5 if debug_mode else random.randint(20, 40)
                 created = 0
@@ -181,7 +190,7 @@ class Command(BaseCommand):
                             if opt.options_json
                         }
 
-                        athlete = Athlete.objects.create(
+                        athlete = Athlete.objects.create(  # noqa: F841
                             registration=registration,
                             race=race,
                             package=chosen_package,

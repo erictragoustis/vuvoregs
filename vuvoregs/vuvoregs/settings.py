@@ -16,9 +16,8 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
-
+# SECURITY SETTINGS
+# ------------------------------------------------------------------------------
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = "django-insecure-u+w$8m4ao%h-6)do*fk)zt)9!rclosr4d*tfnaw04-3e+%p-dr"
 
@@ -28,20 +27,20 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 
-# Application definition
-
+# APPLICATION DEFINITION
+# ------------------------------------------------------------------------------
 INSTALLED_APPS = [
-    # first party apps
+    # First-party apps
     "jazzmin",
-    # core django apps
+    # Core Django apps
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "django.contrib.sites",  # required by allauth
-    # packages
+    "django.contrib.sites",  # Required by allauth
+    # Third-party packages
     "crispy_forms",
     "crispy_bootstrap5",
     "django_json_widget",
@@ -50,13 +49,17 @@ INSTALLED_APPS = [
     "allauth.socialaccount",
     "allauth.socialaccount.providers.google",
     "payments",
-    # apps
+    "cities_light",
+    # Custom apps
     "accounts",
     "event.templatetags",
     "event",
     "dashboard",
 ]
+
+# Site ID for django.contrib.sites
 SITE_ID = 1
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -69,16 +72,19 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "vuvoregs.urls"
+
+# Custom user model
 AUTH_USER_MODEL = "accounts.User"
+
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [os.path.join(BASE_DIR, "templates")],
+        "DIRS": [os.path.join(BASE_DIR, "templates")],  # Custom templates directory
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
                 "django.template.context_processors.debug",
-                "django.template.context_processors.request",
+                "django.template.context_processors.request",  # Required by allauth
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
             ],
@@ -89,9 +95,9 @@ TEMPLATES = [
 WSGI_APPLICATION = "vuvoregs.wsgi.application"
 
 
-# Database
+# DATABASE CONFIGURATION
+# ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
-
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
@@ -100,9 +106,9 @@ DATABASES = {
 }
 
 
-# Password validation
+# PASSWORD VALIDATION
+# ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",  # noqa: E501
@@ -119,39 +125,42 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-# Internationalization
+# INTERNATIONALIZATION
+# ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
-
 LANGUAGE_CODE = "en-us"
-
 TIME_ZONE = "UTC"
-
 USE_I18N = True
-
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
+# STATIC AND MEDIA FILES
+# ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
-
 STATIC_URL = "static/"
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
-# Default primary key field type
+
+# DEFAULT PRIMARY KEY FIELD TYPE
+# ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
-
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
+# THIRD-PARTY PACKAGE SETTINGS
+# ------------------------------------------------------------------------------
+# Crispy Forms
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
-
 CRISPY_TEMPLATE_PACK = "bootstrap5"
 
+# Jazzmin Admin Customization
 JAZZMIN_SETTINGS = {
     "custom_links": {
         "event": [
             {
                 "name": "Export Event Athletes",
-                "url": "event_admin:export-athletes",  # ✅ new namespace
+                "url": "event_admin:export-athletes",  # New namespace
                 "icon": "fas fa-download",
             },
             {
@@ -163,29 +172,31 @@ JAZZMIN_SETTINGS = {
     },
 }
 
-
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
-
-
-# payments settings
+# Payments
 PAYMENT_MODEL = "event.Payment"
 PAYMENT_VARIANTS = {
     "dummy": ("payments.dummy.DummyProvider", {}),
-    # Later, i will replace 'dummy' with 'viva smart checkout' or another provider
+    # Replace 'dummy' with 'viva smart checkout' or another provider in production
 }
 
-# All auth settings
+
+# DJANGO-ALLAUTH SETTINGS
+# ------------------------------------------------------------------------------
 AUTHENTICATION_BACKENDS = [
-    "django.contrib.auth.backends.ModelBackend",
-    "allauth.account.auth_backends.AuthenticationBackend",
+    "django.contrib.auth.backends.ModelBackend",  # Default Django auth backend
+    "allauth.account.auth_backends.AuthenticationBackend",  # Allauth backend
 ]
 
-ACCOUNT_LOGIN_METHODS = {"email"}  # or {"username", "email", "username_email"}
-
+# Account settings
+ACCOUNT_LOGIN_METHODS = {"email"}  # Login using email
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None
-ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 
+# Redirect URLs
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
+
+# DJANGO CITIES LIGHT SETTINGS
+# ------------------------------------------------------------------------------
+CITIES_LIGHT_TRANSLATION_LANGUAGES = ["en"]
+CITIES_LIGHT_INCLUDE_COUNTRIES = ["GR"]  # Include only South Africa
