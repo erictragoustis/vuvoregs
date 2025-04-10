@@ -157,6 +157,9 @@ class Race(models.Model):
 
     name = models.CharField(max_length=255, blank=True)
     event = models.ForeignKey(Event, related_name="races", on_delete=models.CASCADE)
+    image = models.ImageField(
+        upload_to="images/event_images/race_images", blank=True, null=True
+    )
     race_type = models.ForeignKey(
         RaceType, related_name="races", on_delete=models.CASCADE
     )
