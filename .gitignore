@@ -96,7 +96,7 @@ ruff_cache/
 # ⚙️ VS Code
 # ===============================
 .vscode/
-.code-workspace
+*.code-workspace
 
 # ===============================
 # 🧠 JetBrains / IDEs
@@ -133,4 +133,5 @@ yarn-error.log
 # ===============================
 *.sql
 *.dump
+
 
