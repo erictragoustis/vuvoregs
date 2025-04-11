@@ -35,8 +35,9 @@ static_root/
 local_settings.py
 instance/
 .env.local
-.env.*
 *.pyc
+.env
+.env.*
 
 # Migrations (but keep __init__.py)
 **/migrations/*.py
