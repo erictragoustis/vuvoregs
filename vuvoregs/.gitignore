@@ -132,3 +132,4 @@ yarn-error.log
 # ===============================
 *.sql
 *.dump
+vuvoregs/vuvoregs/.env
