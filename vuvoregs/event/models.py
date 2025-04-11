@@ -436,6 +436,8 @@ class Athlete(models.Model):
 class Payment(BasePayment):
     """Custom concrete Payment model with success/failure redirects."""
 
+    order_code = models.CharField(max_length=50, blank=True, default="")
+
     def get_registration_id(self):
         """Extract the registration ID from the payment's extra data."""
         try:

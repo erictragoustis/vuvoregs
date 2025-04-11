@@ -398,6 +398,7 @@ class PaymentAdmin(admin.ModelAdmin):
         "variant",
         "status",
         "total",
+        "order_code",
         "currency",
         "billing_email",
         "created",

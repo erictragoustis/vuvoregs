@@ -66,7 +66,6 @@ urlpatterns = [
     path("ajax/load-regions/", views.load_regions, name="ajax_load_regions"),
     path("ajax/load-cities/", views.load_cities, name="ajax_load_cities"),
     # ✅ Success (via fallback or direct)
-    path("payment/success/", views.viva_success_redirect_handler),
     path(
         "payment/success/<str:transaction_id>/",
         views.viva_payment_success,
@@ -78,5 +77,11 @@ urlpatterns = [
         views.viva_payment_failure,
         name="viva_payment_failure",
     ),
+    path("payment/success/", views.viva_success_redirect_handler),
     path("payments/webhook/", views.payment_webhook, name="payment_webhook"),
+    path(
+        "payment/check-status/<str:transaction_id>/",
+        views.check_transaction_status,
+        name="check_transaction_status",
+    ),
 ]

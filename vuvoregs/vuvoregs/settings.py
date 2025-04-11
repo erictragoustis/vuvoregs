@@ -12,17 +12,24 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 import os
 from pathlib import Path
 
+import environ
+
+env = environ.Env(DEBUG=(bool, False))
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Read the .env file
+environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
 
 # SECURITY SETTINGS
 # ------------------------------------------------------------------------------
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-u+w$8m4ao%h-6)do*fk)zt)9!rclosr4d*tfnaw04-3e+%p-dr"
+SECRET_KEY = env("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env("DEBUG")
 
 ALLOWED_HOSTS = ["*"]
 
@@ -200,15 +207,15 @@ PAYMENT_VARIANTS = {
     "viva": (
         "event.payments.smart_checkout.VivaSmartCheckoutProvider",
         {
-            "merchant_id": "907d0b4a-8a54-4162-9c43-4ee368fd6324",
-            "api_key": "soTJzV",
-            "client_id": "2sj9qql3n9km69itn87po0hu8pmkubetvna5t2u5caj73.apps.vivapayments.com",
-            "client_secret": "7o9n91nDM74LLh8L6qd350x3AAvn2J",
-            "source_code": "9466",
+            "merchant_id": env("VIVA_MERCHANT_ID"),
+            "api_key": env("VIVA_API_KEY"),
+            "client_id": env("VIVA_CLIENT_ID"),
+            "client_secret": env("VIVA_CLIENT_SECRET"),
+            "source_code": env("VIVA_SOURCE_CODE"),
             "sandbox": True,
         },
     ),
     "dummy": ("payments.dummy.DummyProvider", {}),
 }
 PAYMENT_MODEL = "event.Payment"
-VIVA_WEBHOOK_VERIFICATION_KEY = "747D243E3D19E9F1961F2D2941F1B0C6878CA587"
+VIVA_WEBHOOK_VERIFICATION_KEY = env("VIVA_VERIFICATION_KEY")
