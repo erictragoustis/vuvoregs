@@ -29,7 +29,6 @@ venv.bak/
 # ===============================
 *.sqlite3
 db.sqlite3
-media/
 staticfiles/
 static_root/
 local_settings.py
@@ -38,6 +37,8 @@ instance/
 *.pyc
 .env
 .env.*
+/media/
+
 
 # Migrations (but keep __init__.py)
 **/migrations/*.py
@@ -135,3 +136,7 @@ yarn-error.log
 *.dump
 
 
+vuvoregs/vuvoregs/event/views_bak.py
+vuvoregs/media/images/ph.png
+vuvoregs/media/images/event_images/race_images/PAW25-banneraki-sq-ezgif.com-resize.gif
+vuvoregs/media/
