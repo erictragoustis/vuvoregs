@@ -1,0 +1,29 @@
+"""This module defines URL patterns for AJAX requests in the event application.
+
+It includes routes for loading regions,
+cities, package options, and special price options.
+"""
+
+from django.urls import path
+
+from event.views import (
+    load_cities,
+    load_regions,
+    package_options,
+    special_price_options,
+)
+
+urlpatterns = [
+    path(
+        "race/package/<int:package_id>/options/",
+        package_options,
+        name="package_options",
+    ),
+    path(
+        "race/<int:race_id>/special-prices/",
+        special_price_options,
+        name="special_price_options",
+    ),
+    path("load-regions/", load_regions, name="ajax_load_regions"),
+    path("load-cities/", load_cities, name="ajax_load_cities"),
+]

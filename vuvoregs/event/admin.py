@@ -22,19 +22,13 @@ from django_json_widget.widgets import JSONEditorWidget
 from .forms import BibNumberImportForm, ExportEventAthletesForm
 
 # 📦 Local app models and forms
-from .models import (
-    Athlete,
-    Event,
-    PackageOption,
-    Payment,
-    PickUpPoint,
-    Race,
-    RacePackage,
-    RaceSpecialPrice,
-    RaceType,
-    Registration,
-    TermsAndConditions,
-)
+from .models.athlete import Athlete
+from .models.event import Event, PickUpPoint
+from .models.package import RacePackage, RaceSpecialPrice
+from .models.payment import Payment
+from .models.race import Race, RaceType
+from .models.registration import Registration
+from .models.terms import TermsAndConditions
 
 
 # 👤 Custom form with JSON widget
@@ -193,7 +187,6 @@ class PickUpPointAdmin(admin.ModelAdmin):
     search_fields = ("name", "address", "event__name")
 
 
-# ✅ CSV Export for athletes
 @admin.action(description="📤 Export selected athletes to CSV")
 def export_athletes_to_csv(modeladmin, request, queryset):
     response = HttpResponse(content_type="text/csv")
@@ -207,6 +200,7 @@ def export_athletes_to_csv(modeladmin, request, queryset):
         "phone",
         "package",
         "race",
+        "pickup_point",  # ✅ Added safely
         "bib_number",
     ])
     for athlete in queryset:
@@ -218,6 +212,7 @@ def export_athletes_to_csv(modeladmin, request, queryset):
             athlete.phone,
             athlete.package.name if athlete.package else "",
             athlete.race.name if athlete.race else "",
+            athlete.pickup_point.name if athlete.pickup_point else "",  # ✅ Null-safe
             athlete.bib_number or "",
         ])
     return response
@@ -324,7 +319,7 @@ def export_athletes_view(request):
                     athlete.first_name,
                     athlete.last_name,
                     athlete.dob,
-                    athlete.pickup_point.name,
+                    athlete.pickup_point.name if athlete.pickup_point else "",
                     athlete.package.name if athlete.package else "",
                     athlete.race.name if athlete.race else "",
                     athlete.bib_number or "",

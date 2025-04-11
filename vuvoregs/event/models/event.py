@@ -1,0 +1,114 @@
+"""Models for the event application.
+
+Defines models for events
+"""
+
+from django.conf import settings
+from django.db import models
+from django.db.models import Count, F, Q
+from django.utils.functional import cached_property
+from django.utils.timezone import now
+
+from .athlete import Athlete
+
+
+class EventManager(models.Manager):
+    """Custom manager for the Event model."""
+
+    def available(self):
+        """Return events that are available for registration."""
+        return (
+            self.get_queryset()
+            .annotate(
+                num_athletes=Count(
+                    "registrations__athletes",
+                    filter=Q(registrations__payment_status="paid"),
+                    distinct=True,
+                )
+            )
+            .filter(
+                is_available=True,
+                date__gte=now().date(),
+                registration_start_date__lte=now(),
+                registration_end_date__gte=now(),
+            )
+            .filter(
+                Q(max_participants__isnull=True)
+                | Q(num_athletes__lt=F("max_participants"))
+            )
+        )
+
+
+class Event(models.Model):
+    """Represent an event that users can register for."""
+
+    name = models.CharField(max_length=255)
+    date = models.DateField()
+    image = models.ImageField(upload_to="images/event_images/", blank=True, null=True)
+    location = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    organizer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="events",
+    )
+    max_participants = models.PositiveIntegerField(null=True, blank=True)
+    registration_start_date = models.DateTimeField(null=True, blank=True)
+    registration_end_date = models.DateTimeField(null=True, blank=True)
+    is_available = models.BooleanField(default=True)
+
+    objects = EventManager()
+
+    def __str__(self):
+        """Return a string representation of the event."""
+        return self.name
+
+    @cached_property
+    def paid_athletes(self):
+        """Return a queryset of athletes who have paid for this event."""
+        return Athlete.objects.filter(
+            registration__event=self,
+            registration__payment_status="paid",
+        )
+
+    @property
+    def paid_athlete_count(self):
+        """Return the count of paid athletes for this event."""
+        return self.paid_athletes.count()
+
+    def is_registration_open(self):
+        """Check if the registration for this event is currently open."""
+        if not self.is_available or self.date < now().date():
+            return False
+        if self.registration_start_date and self.registration_start_date > now():
+            return False
+        if self.registration_end_date and self.registration_end_date < now():
+            return False
+
+        current_athletes = (
+            self.registrations.aggregate(count=Count("athletes", distinct=True))[
+                "count"
+            ]
+            or 0
+        )
+
+        return self.max_participants is None or current_athletes < self.max_participants
+
+
+class PickUpPoint(models.Model):
+    """Represent a pickup point for an event."""
+
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name="pickup_points",
+    )
+    name = models.CharField(max_length=255)
+    address = models.TextField()
+    working_hours = models.CharField(max_length=255, help_text="e.g. Mon–Fri 9am–5pm")
+
+    def __str__(self):
+        """Return a string representation of the pickup point."""
+        return f"{self.name} ({self.event.name})"

@@ -1,36 +1,20 @@
-"""Forms for handling event registration, athlete data entry, and special pricing logic."""  # noqa: E501
+"""This module contains forms for managing athlete data during registration.
 
-# Standard Django form imports
-from cities_light.models import City, Country, Region
+It includes:
+- AthleteForm: A form for capturing individual athlete details.
+- MinParticipantsFormSet: A formset enforcing minimum participant count.
+- athlete_formset_factory: A factory for generating AthleteFormSet
+tied to a Registration.
+"""
+
 from django import forms
 from django.core.exceptions import ValidationError
 from django.forms import BaseInlineFormSet, inlineformset_factory
 
-# Project-specific models
-from .models import Athlete, Event, PickUpPoint, RaceSpecialPrice, Registration
-
-
-class BillingForm(forms.Form):  # noqa: D101
-    billing_first_name = forms.CharField(max_length=100)
-    billing_last_name = forms.CharField(max_length=100)
-    billing_address_1 = forms.CharField(max_length=255)
-    billing_address_2 = forms.CharField(max_length=255, required=False)
-    billing_postcode = forms.CharField(max_length=20)
-    billing_country = forms.ModelChoiceField(
-        queryset=Country.objects.all(),
-        widget=forms.Select(attrs={"class": "form-select", "id": "billing-country"}),
-    )
-    billing_region = forms.ModelChoiceField(
-        queryset=Region.objects.none(),
-        widget=forms.Select(attrs={"class": "form-select", "id": "billing-region"}),
-        required=False,
-    )
-    billing_city = forms.ModelChoiceField(
-        queryset=City.objects.none(),
-        widget=forms.Select(attrs={"class": "form-select", "id": "billing-city"}),
-    )
-    billing_phone = forms.CharField(max_length=20)
-    billing_email = forms.EmailField()
+from event.models.athlete import Athlete
+from event.models.event import PickUpPoint
+from event.models.package import RaceSpecialPrice
+from event.models.registration import Registration
 
 
 class AthleteForm(forms.ModelForm):
@@ -192,21 +176,3 @@ def athlete_formset_factory(race):
         can_delete=False,
     )
     return AthleteFormSet
-
-
-class BibNumberImportForm(forms.Form):
-    """Form for uploading a CSV to import bib numbers for athletes."""
-
-    csv_file = forms.FileField(
-        label="CSV file",
-        help_text="Upload a CSV with columns: id;bib_number",
-        required=True,
-    )
-
-
-class ExportEventAthletesForm(forms.Form):
-    """Form to select an event for exporting its athlete registrations."""
-
-    event = forms.ModelChoiceField(
-        queryset=Event.objects.all(), required=True, label="Select Event"
-    )
