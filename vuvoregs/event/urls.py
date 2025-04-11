@@ -47,7 +47,7 @@ urlpatterns = [
     ),
     # 🎯 Return special pricing options for a package (AJAX)
     path(
-        "race/package/<int:package_id>/special-prices/",
+        "race/<int:race_id>/special-prices/",
         views.special_price_options,
         name="special_price_options",
     ),
@@ -65,4 +65,18 @@ urlpatterns = [
     ),
     path("ajax/load-regions/", views.load_regions, name="ajax_load_regions"),
     path("ajax/load-cities/", views.load_cities, name="ajax_load_cities"),
+    # ✅ Success (via fallback or direct)
+    path("payment/success/", views.viva_success_redirect_handler),
+    path(
+        "payment/success/<str:transaction_id>/",
+        views.viva_payment_success,
+        name="viva_payment_success",
+    ),
+    # ❌ Failure
+    path(
+        "payment/failure/<str:transaction_id>/",
+        views.viva_payment_failure,
+        name="viva_payment_failure",
+    ),
+    path("payments/webhook/", views.payment_webhook, name="payment_webhook"),
 ]

@@ -40,12 +40,42 @@
         <div class="col-md-4">{{ billing_form.billing_region|as_crispy_field }}</div>
         <div class="col-md-4">{{ billing_form.billing_city|as_crispy_field }}</div>
       </div>
+      <div class="form-check mt-4">
+        <input class="form-check-input"
+               type="checkbox"
+               name="agrees_to_terms"
+               id="agreeCheck"
+               required>
+        <label class="form-check-label" for="agreeCheck">
+          I agree to the Terms & Conditions (v{{ event.terms.version }})
+          (<a href="#" data-bs-toggle="modal" data-bs-target="#termsModal">view</a>)
+        </label>
+      </div>
       <div class="mt-4 text-end">
         <button type="submit" class="btn btn-primary btn-lg">
           <i class="fa-solid fa-lock me-1"></i> Proceed to Payment
         </button>
       </div>
     </form>
+  </div>
+  <!-- Terms Modal -->
+  <div class="modal fade"
+       id="termsModal"
+       tabindex="-1"
+       aria-labelledby="termsModalLabel"
+       aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="termsModalLabel">Terms & Conditions</h5>
+          <button type="button"
+                  class="btn-close"
+                  data-bs-dismiss="modal"
+                  aria-label="Close"></button>
+        </div>
+        <div class="modal-body">{{ event.terms.content|safe }}</div>
+      </div>
+    </div>
   </div>
   <!-- ✅ Dynamic City/Region JavaScript -->
   <script>

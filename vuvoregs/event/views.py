@@ -11,31 +11,34 @@ events, and the payment system.
 """
 
 # Built-in libraries
+import hashlib
+import hmac
 import json
 
 from cities_light.models import City, Country, Region
+from django.conf import settings
 
 # Django core imports
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Q
-from django.http import JsonResponse
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 # Third-party packages
-from payments import RedirectNeeded
+from payments import PaymentStatus, RedirectNeeded
 
 # Local app imports
 from .forms import BillingForm, athlete_formset_factory
 from .models import (
     Event,
-    PackageSpecialPrice,
     Payment,
     Race,
     RacePackage,
+    RaceSpecialPrice,
     Registration,
+    TermsAndConditions,
 )
 
 
@@ -110,7 +113,7 @@ def registration(request, race_id):
                 athlete_instances = formset.save(commit=False)
                 for athlete_obj in athlete_instances:
                     athlete_obj.registration = registration_instance
-                    athlete_obj.race = race
+                    athlete_obj.race = race  # required before calling get_final_price
                     athlete_obj.save()
                     total_amount += athlete_obj.get_final_price()
 
@@ -171,10 +174,30 @@ def package_options(request, package_id):
     })
 
 
+# 📜 Display and handle Terms & Conditions agreement
+@require_http_methods(["GET", "POST"])
 def confirm_registration(request, registration_id):
-    """Show confirmation screen for a registration with all entered athlete data."""
+    """Show confirmation screen and handle agreement to T&Cs."""
     registration = get_object_or_404(Registration, pk=registration_id)
     athletes = registration.athletes.select_related("package", "race")
+    event = registration.event
+    terms = getattr(event, "terms", None)
+
+    if request.method == "POST":
+        if request.POST.get("agrees_to_terms") != "on":
+            messages.error(
+                request, "You must agree to the Terms & Conditions before proceeding."
+            )
+            return redirect("confirm_registration", registration_id=registration.id)
+
+        # ✅ Save T&C agreement
+        registration.agrees_to_terms = True
+        registration.agreed_to_terms = terms
+        registration.save()
+
+    # Initial form rendering
+    from .forms import BillingForm
+
     form = BillingForm(
         initial={
             "billing_email": athletes[0].email if athletes else "",
@@ -186,7 +209,7 @@ def confirm_registration(request, registration_id):
         {
             "registration": registration,
             "athletes": athletes,
-            "event": registration.event,
+            "event": event,
             "billing_form": form,
         },
     )
@@ -286,30 +309,20 @@ def payment_webhook(request):
 
 
 @require_GET
-def special_price_options(request, package_id):
-    """Return all special price options available for a given package.
+def special_price_options(request, race_id):
+    """Return all special price options available for a given race."""
+    special_prices = RaceSpecialPrice.objects.filter(race_id=race_id)
 
-    optionally filtered by race).
-    Used for dynamically updating the price field.
-    """
-    race_id = request.GET.get("race_id")
-    try:
-        package = RacePackage.objects.get(id=package_id)
-        race = Race.objects.filter(id=race_id).first()
-
-        special_prices = PackageSpecialPrice.objects.filter(package=package).filter(
-            Q(event=package.event) | Q(event__isnull=True),
-            Q(race=race) | Q(race__isnull=True),
-        )
-
-        return JsonResponse({
-            "special_prices": [
-                {"id": sp.id, "label": sp.label, "price": str(sp.price)}
-                for sp in special_prices
-            ]
-        })
-    except RacePackage.DoesNotExist:
-        return JsonResponse({"special_prices": []})
+    return JsonResponse({
+        "special_prices": [
+            {
+                "id": sp.id,
+                "label": sp.label,
+                "discount_amount": str(sp.discount_amount),
+            }
+            for sp in special_prices
+        ]
+    })
 
 
 @require_POST
@@ -319,22 +332,29 @@ def create_payment(request, registration_id):
     Redirects to the provider's checkout or payment URL.
     """
     print("🔁 create_payment hit")
-    print("📦 POST data:", request.POST.dict())  # <- this MUST be here at the top
+    print("📦 POST data:", request.POST.dict())
     registration = get_object_or_404(Registration, pk=registration_id)
 
     if registration.payment:
-        print("⚠️ Already has payment, skipping creation.")
-        return redirect(registration.payment.get_process_url())
-    # Get the country ID from POST
+        try:
+            form = registration.payment.get_form()
+        except RedirectNeeded as redirect_to:
+            return redirect(str(redirect_to))
+        return HttpResponse(
+            "Unexpected error with existing payment.", status=500
+        )  # or raise
+
     country_id = request.POST.get("billing_country")
     region_id = request.POST.get("billing_region")
     city_id = request.POST.get("billing_city")
+
     country = Country.objects.filter(id=country_id).first()
     region = Region.objects.filter(id=region_id).first()
     city = City.objects.filter(id=city_id).first()
 
+    # First save Payment to generate a PK before using get_form (which calls .save(update_fields=...))
     payment = Payment.objects.create(
-        variant="dummy",
+        variant="viva",
         description=f"Registration #{registration.id}",
         total=registration.total_amount,
         currency="EUR",
@@ -347,18 +367,19 @@ def create_payment(request, registration_id):
         billing_country_area=region.name if region else None,
         billing_city=city.name if city else None,
         billing_email=request.POST.get("billing_email"),
-        billing_phone=request.POST.get("billing_phone"),
-        status="confirmed",  # or 'waiting' if using a real provider
+        billing_phone=str(request.POST.get("billing_phone")),  # ensure JSON safe
+        status="confirmed",
         captured_amount=0,
-        extra_data=json.dumps({"registration_id": registration.id}),
     )
-    print(request.POST.dict())
+
+    payment.registration = registration
+    payment.save()
+
     registration.payment = payment
-    print(f"Saved payment: {payment.billing_first_name}, {payment.billing_email}")
     registration.save()
 
     try:
-        return redirect(payment.get_process_url())
+        form = payment.get_form()
     except RedirectNeeded as redirect_to:
         return redirect(str(redirect_to))
 
@@ -373,3 +394,114 @@ def load_cities(request):
     region_id = request.GET.get("region_id")
     cities = City.objects.filter(region_id=region_id).order_by("name")
     return JsonResponse({"cities": list(cities.values("id", "name"))})
+
+
+def viva_payment_success(request, transaction_id):
+    payment = get_object_or_404(Payment, transaction_id=transaction_id)
+    registration = getattr(payment, "registration", None)
+
+    if payment.status != PaymentStatus.CONFIRMED:
+        payment.status = PaymentStatus.CONFIRMED
+        payment.save()
+
+        if registration:
+            registration.payment_status = "paid"
+            registration.status = "completed"
+            registration.save()
+
+    return redirect("payment_success", registration_id=registration.id)
+
+
+def viva_payment_failure(request, transaction_id):
+    payment = get_object_or_404(Payment, transaction_id=transaction_id)
+    registration = getattr(payment, "registration", None)
+    if not registration:
+        return HttpResponse(
+            "Payment found but not linked to any registration.", status=500
+        )
+
+    if payment.status != PaymentStatus.ERROR:
+        payment.status = PaymentStatus.ERROR
+        payment.save()
+
+        if registration:
+            registration.payment_status = "failed"
+            registration.status = "failed"
+            registration.save()
+
+    return redirect("payment_failure", registration_id=registration.id)
+
+
+def viva_success_redirect_handler(request):
+    order_code = request.GET.get("s")  # 't' is Viva's transaction ref
+    if not order_code:
+        return HttpResponse("Missing order code", status=400)
+    return redirect("viva_payment_success", transaction_id=order_code)
+
+
+@csrf_exempt
+def payment_webhook(request):
+    """Handles webhook notifications from Viva Wallet for transaction events.
+
+    - Expects POST with Viva event JSON payload.
+    - EventData.transactionId is used to locate the related payment.
+    - Uses EventTypeId to decide status update.
+    """
+    if request.method == "GET":
+        return JsonResponse({"Key": settings.VIVA_WEBHOOK_VERIFICATION_KEY})
+
+    if request.method != "POST":
+        return HttpResponse(status=405)
+
+    try:
+        payload = json.loads(request.body)
+        event_type_id = payload.get("EventTypeId")
+        transaction_data = payload.get("EventData", {})
+        transaction_id = transaction_data.get("TransactionId")
+
+        print("📬 Webhook received:", event_type_id, transaction_id)
+
+        if not transaction_id:
+            return JsonResponse(
+                {"status": "error", "message": "Missing TransactionId"}, status=400
+            )
+
+        # Find payment with that transaction ID stored in extra_data (assumed format)
+        payment = Payment.objects.filter(extra_data__icontains=transaction_id).first()
+        if not payment:
+            return JsonResponse(
+                {"status": "error", "message": "Payment not found"}, status=404
+            )
+
+        if event_type_id == 1796:  # Transaction Payment Created
+            payment.status = "confirmed"
+        elif event_type_id == 1798:  # Transaction Failed
+            payment.status = "rejected"
+        elif event_type_id == 1797:  # Transaction Reversal (refund)
+            payment.status = "refunded"
+        else:
+            return JsonResponse({
+                "status": "ignored",
+                "message": "Unhandled EventTypeId",
+            })
+
+        payment.save()
+
+        if hasattr(payment, "registration"):
+            registration = payment.registration
+            if payment.status == "confirmed":
+                registration.status = "completed"
+                registration.payment_status = "paid"
+            elif payment.status == "rejected":
+                registration.status = "failed"
+                registration.payment_status = "failed"
+            elif payment.status == "refunded":
+                registration.status = "refunded"
+                registration.payment_status = "refunded"
+            registration.save()
+
+        return JsonResponse({"status": "success"})
+
+    except Exception as e:
+        print("❗ Webhook error:", str(e))
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)

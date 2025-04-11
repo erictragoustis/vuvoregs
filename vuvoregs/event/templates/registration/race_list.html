@@ -37,7 +37,20 @@
                                             {% for package in race_packages %}
                                                 <tr>
                                                     <td>{{ package.name }}</td>
-                                                    <td>€{{ package.price|floatformat:2 }}</td>
+                                                    <td>
+                                                        {% if race.base_price_individual %}
+                                                            €{{ race.base_price_individual|floatformat:2 }}
+                                                            {% if package.price_adjustment %}
+                                                                {% if package.price_adjustment > 0 %}
+                                                                    + €{{ package.price_adjustment|floatformat:2 }}
+                                                                {% elif package.price_adjustment < 0 %}
+                                                                    − €{{ package.price_adjustment|floatformat:2|stringformat:"s"|slice:"1:" }}
+                                                                {% endif %}
+                                                            {% endif %}
+                                                        {% else %}
+                                                            —
+                                                        {% endif %}
+                                                    </td>
                                                     <td>
                                                         {% if package.team_discount_threshold and package.team_discount_price %}
                                                             €{{ package.team_discount_price|floatformat:2 }} ({{ package.team_discount_threshold }}+)
@@ -48,7 +61,7 @@
                                                     <td>
                                                         {% with specials=package.special_prices.all %}
                                                             {% if specials %}
-                                                                {% for sp in specials %}{{ sp.label }} – €{{ sp.price|floatformat:2 }}{% endfor %}
+                                                                {% for sp in specials %}{{ sp.label }} ({{ sp.price_adjustment|floatformat:2 }}){% endfor %}
                                                             {% else %}
                                                                 <em>—</em>
                                                             {% endif %}
@@ -90,33 +103,35 @@
                                     <i class="fa-solid fa-person-running me-1 text-secondary"></i>
                                     {{ race.race_type.name }} • {{ race.race_km }} km
                                 </p>
-                                {% with race.packages.all|dictsort:"price" as sorted_packages %}
+                                {% with race.packages.all|dictsort:"price_adjustment" as sorted_packages %}
                                     {% if sorted_packages %}
                                         <p class="fw-bold text-dark small mb-3">
                                             <i class="fa-solid fa-tag me-1 text-muted"></i>
-                                            From <span class="text-primary">€{{ sorted_packages.0.price|floatformat:2 }}</span>
-                                        </p>
-                                    {% endif %}
-                                {% endwith %}
-                                <div class="mt-auto">
-                                    <a href="{% url 'registration' race.id %}?type=individual"
-                                       class="btn btn-outline-primary w-100">Register →</a>
-                                </div>
+                                            From <span class="text-primary">
+                                            from €{{ race.base_price_individual|add:sorted_packages.0.price_adjustment|floatformat:2 }}
+                                        </span>
+                                    </p>
+                                {% endif %}
+                            {% endwith %}
+                            <div class="mt-auto">
+                                <a href="{% url 'registration' race.id %}?type=individual"
+                                   class="btn btn-outline-primary w-100">Register →</a>
                             </div>
                         </div>
                     </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <div class="alert alert-warning">No races are currently available for this event.</div>
-        {% endif %}
-        <!-- ✅ Team CTA -->
-        <div class="bg-light p-4 rounded mt-5 text-center border">
-            <h5>Registering a Team?</h5>
-            <p class="mb-3">
-                If you're part of a club, school, or group of athletes, you can register your entire team and unlock group discounts.
-            </p>
-            <a href="/team-registration-intro/" class="btn btn-primary btn-lg">Start a Team Registration →</a>
+                </div>
+            {% endfor %}
         </div>
+    {% else %}
+        <div class="alert alert-warning">No races are currently available for this event.</div>
+    {% endif %}
+    <!-- ✅ Team CTA -->
+    <div class="bg-light p-4 rounded mt-5 text-center border">
+        <h5>Registering a Team?</h5>
+        <p class="mb-3">
+            If you're part of a club, school, or group of athletes, you can register your entire team and unlock group discounts.
+        </p>
+        <a href="/team-registration-intro/" class="btn btn-primary btn-lg">Start a Team Registration →</a>
     </div>
+</div>
 {% endblock %}

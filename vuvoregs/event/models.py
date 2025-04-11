@@ -166,6 +166,23 @@ class Race(models.Model):
     race_km = models.DecimalField(max_digits=5, decimal_places=2)
     max_participants = models.PositiveIntegerField(null=True, blank=True)
     min_participants = models.PositiveIntegerField(null=True, blank=True)
+    base_price_individual = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        help_text="Base price for individual registrations",
+    )
+    base_price_team = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        help_text="Base price per athlete for team registrations",
+    )
+    team_discount_threshold = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Minimum number of athletes for team pricing to apply",
+    )
 
     objects = RaceManager()
 
@@ -187,11 +204,13 @@ class RacePackage(models.Model):
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="packages")
     name = models.CharField(max_length=255)
     description = models.TextField()
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    price_adjustment = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        help_text="Adjustment applied to race base price",
+    )
     races = models.ManyToManyField(Race, related_name="packages")
-    team_discount_threshold = models.PositiveIntegerField(
-        null=True, blank=True
-    )  # e.g. 5 athletes
     team_discount_price = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True
     )
@@ -233,6 +252,22 @@ class PackageOption(models.Model):
         self.save()
 
 
+class TermsAndConditions(models.Model):
+    """Represent terms and conditions for an event."""
+
+    event = models.OneToOneField(
+        "Event", on_delete=models.CASCADE, related_name="terms"
+    )
+    title = models.CharField(max_length=255, default="Terms and Conditions")
+    content = models.TextField(help_text="You can use basic HTML or markdown.")
+    version = models.CharField(max_length=20, default="1.0")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        """Return a string representation of the terms and conditions."""
+        return f"{self.title} (v{self.version}) for {self.event.name}"
+
+
 class Registration(models.Model):
     """Represent a participant's registration for an event."""
 
@@ -257,6 +292,14 @@ class Registration(models.Model):
     payment_status = models.CharField(
         max_length=20, choices=PAYMENT_CHOICES, default="not_paid"
     )
+    agreed_to_terms = models.ForeignKey(
+        TermsAndConditions,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        help_text="Terms agreed to at confirmation",
+    )
+    agrees_to_terms = models.BooleanField(default=False)
     payment = models.OneToOneField(
         "event.Payment",
         null=True,
@@ -266,40 +309,27 @@ class Registration(models.Model):
     )
 
     def __str__(self):
-        """Return a string representation of the registration."""
-        return f"Registration {self.id} - {self.status} ({self.created_at.strftime('%Y-%m-%d')})"  # noqa: E501
+        date_str = (
+            self.created_at.strftime("%Y-%m-%d") if self.created_at else "unsaved"
+        )
+        return f"Registration {self.id or 'unsaved'} - {self.status} ({date_str})"
 
 
-class TermsAndConditions(models.Model):
-    """Represent terms and conditions for an event."""
+class RaceSpecialPrice(models.Model):
+    """Represent special pricing for a race."""
 
-    event = models.OneToOneField(
-        "Event", on_delete=models.CASCADE, related_name="terms"
+    race = models.ForeignKey(
+        "Race", on_delete=models.CASCADE, related_name="special_prices"
     )
-    title = models.CharField(max_length=255, default="Terms and Conditions")
-    content = models.TextField(help_text="You can use basic HTML or markdown.")
-    version = models.CharField(max_length=20, default="1.0")
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        """Return a string representation of the terms and conditions."""
-        return f"{self.title} (v{self.version}) for {self.event.name}"
-
-
-class PackageSpecialPrice(models.Model):
-    """Represent special pricing for a race package."""
-
-    package = models.ForeignKey(
-        "RacePackage", on_delete=models.CASCADE, related_name="special_prices"
-    )
-    event = models.ForeignKey("Event", on_delete=models.CASCADE, null=True, blank=True)
-    race = models.ForeignKey("Race", on_delete=models.CASCADE, null=True, blank=True)
     label = models.CharField(max_length=255)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    discount_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Discount subtracted from base race price",
+    )
 
     def __str__(self):
-        """Return a string representation of the special price."""
-        return f"{self.label} - €{self.price} ({self.package.name})"
+        return f"{self.label} – −€{self.discount_amount:.2f} for {self.race.name}"
 
 
 class Athlete(models.Model):
@@ -310,13 +340,15 @@ class Athlete(models.Model):
         on_delete=models.CASCADE,
         related_name="athletes",
     )
-    special_price_option = models.ForeignKey(
-        PackageSpecialPrice,
+
+    special_price = models.ForeignKey(
+        "RaceSpecialPrice",
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        help_text="Chosen special price for this athlete",
+        help_text="Race-level special price (discount)",
     )
+
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     team = models.CharField(max_length=100, blank=True)
@@ -340,14 +372,6 @@ class Athlete(models.Model):
     )
     registration_date = models.DateTimeField(auto_now_add=True)
     selected_options = models.JSONField(null=True, blank=True)
-    agreed_to_terms = models.ForeignKey(
-        TermsAndConditions,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="agreements",
-    )
-    agrees_to_terms = models.BooleanField(default=False)
 
     class Meta:
         """Meta options for the Athlete model.
@@ -369,21 +393,24 @@ class Athlete(models.Model):
         super().save(*args, **kwargs)
 
     def get_final_price(self):
-        """Get final Price."""
-        package = self.package
+        """Calculate the athlete's final price.
+
+        base price (individual or team) - race-level special discount + package adjustment
+        """
+        race = self.race
         registration = self.registration
+        team_size = registration.athletes.count()
 
-        # Apply special price if selected
-        if self.special_price_option and self.special_price_option.package == package:
-            return self.special_price_option.price
+        is_team = (
+            race.team_discount_threshold and team_size >= race.team_discount_threshold
+        )
 
-        # Apply team discount
-        if package.team_discount_threshold and package.team_discount_price:
-            team_size = registration.athletes.count()
-            if team_size >= package.team_discount_threshold:
-                return package.team_discount_price
+        base_price = race.base_price_team if is_team else race.base_price_individual
 
-        return package.price
+        # Apply race-level special price (discount)
+        discount = self.special_price.discount_amount if self.special_price else 0
+
+        return base_price - discount + self.package.price_adjustment
 
     def clean(self):
         """Validate that all required package options are selected."""

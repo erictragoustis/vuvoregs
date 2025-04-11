@@ -7,13 +7,7 @@ from django.core.exceptions import ValidationError
 from django.forms import BaseInlineFormSet, inlineformset_factory
 
 # Project-specific models
-from .models import (
-    Athlete,
-    Event,
-    PackageSpecialPrice,
-    PickUpPoint,
-    Registration,
-)
+from .models import Athlete, Event, PickUpPoint, RaceSpecialPrice, Registration
 
 
 class BillingForm(forms.Form):  # noqa: D101
@@ -57,8 +51,9 @@ class AthleteForm(forms.ModelForm):
             "pickup_point",
             "hometown",
             "package",
-            "agrees_to_terms",
+            "special_price",
         ]
+
         widgets = {
             "dob": forms.DateInput(
                 format="%Y-%m-%d", attrs={"type": "date", "class": "form-control"}
@@ -82,6 +77,13 @@ class AthleteForm(forms.ModelForm):
         self.request = None
         self.form_index = None
         self.race = race
+        if race:
+            self.fields["special_price"] = forms.ModelChoiceField(
+                queryset=RaceSpecialPrice.objects.filter(race=race),
+                required=False,
+                label="Special Price (if applicable)",
+                widget=forms.RadioSelect,
+            )
 
         # 🔁 Limit package options
         if packages is not None:
@@ -95,26 +97,9 @@ class AthleteForm(forms.ModelForm):
         else:
             self.fields["pickup_point"].queryset = PickUpPoint.objects.none()
 
-        # 🔒 Terms & Conditions agreement per event
-        terms = getattr(race.event, "terms", None) if race else None
-        if terms:
-            self.fields["agrees_to_terms"] = forms.BooleanField(
-                label=f"I agree to the Terms & Conditions (v{terms.version}) for {race.event.name}",  # noqa: E501
-                required=True,
-                error_messages={
-                    "required": "You must agree to the Terms & Conditions to register."
-                },
-            )
-
     def clean(self):
         """Validate form data, enforce T&Cs, extract selected options and special prices."""  # noqa: E501
         cleaned_data = super().clean()
-
-        terms = getattr(self.race.event, "terms", None)
-        if terms:
-            self.instance.agreed_to_terms = terms
-        else:
-            raise ValidationError("This event has no Terms & Conditions set.")
 
         if not cleaned_data.get("package"):
             self.add_error("package", "You must select a package.")
@@ -140,17 +125,8 @@ class AthleteForm(forms.ModelForm):
             self.instance.selected_options = (
                 selected_options if selected_options else {}
             )
-
-            # 💸 Capture special price selected via JS
-            sp_key = f"{prefix}-{index}-special_price_option"
-            sp_id = self.request.POST.get(sp_key)
-            if sp_id:
-                try:
-                    sp = PackageSpecialPrice.objects.get(id=sp_id)
-                    self.instance.special_price_option = sp
-                except PackageSpecialPrice.DoesNotExist:
-                    self.add_error(None, "The selected special price is invalid.")
-
+        print("🧼 CLEANED:", cleaned_data)
+        print("🧾 ERRORS:", self.errors)
         return cleaned_data
 
 

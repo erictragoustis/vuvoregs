@@ -24,7 +24,7 @@ SECRET_KEY = "django-insecure-u+w$8m4ao%h-6)do*fk)zt)9!rclosr4d*tfnaw04-3e+%p-dr
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 
 # APPLICATION DEFINITION
@@ -172,13 +172,6 @@ JAZZMIN_SETTINGS = {
     },
 }
 
-# Payments
-PAYMENT_MODEL = "event.Payment"
-PAYMENT_VARIANTS = {
-    "dummy": ("payments.dummy.DummyProvider", {}),
-    # Replace 'dummy' with 'viva smart checkout' or another provider in production
-}
-
 
 # DJANGO-ALLAUTH SETTINGS
 # ------------------------------------------------------------------------------
@@ -200,3 +193,22 @@ LOGOUT_REDIRECT_URL = "/"
 # ------------------------------------------------------------------------------
 CITIES_LIGHT_TRANSLATION_LANGUAGES = ["en"]
 CITIES_LIGHT_INCLUDE_COUNTRIES = ["GR"]  # Include only South Africa
+
+# DJANGO PAYMENTS
+# ------------------------------------------------------------------------------
+PAYMENT_VARIANTS = {
+    "viva": (
+        "event.payments.smart_checkout.VivaSmartCheckoutProvider",
+        {
+            "merchant_id": "907d0b4a-8a54-4162-9c43-4ee368fd6324",
+            "api_key": "soTJzV",
+            "client_id": "2sj9qql3n9km69itn87po0hu8pmkubetvna5t2u5caj73.apps.vivapayments.com",
+            "client_secret": "7o9n91nDM74LLh8L6qd350x3AAvn2J",
+            "source_code": "9466",
+            "sandbox": True,
+        },
+    ),
+    "dummy": ("payments.dummy.DummyProvider", {}),
+}
+PAYMENT_MODEL = "event.Payment"
+VIVA_WEBHOOK_VERIFICATION_KEY = "747D243E3D19E9F1961F2D2941F1B0C6878CA587"
