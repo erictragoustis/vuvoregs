@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load crispy_forms_tags static %}
+{% load crispy_forms_tags static dict_extras %}
 {% block title %}Register for {{ race.name }}{% endblock %}
 {% block css %}
     <link rel="stylesheet"
@@ -116,8 +116,9 @@
                                                     −€{{ pkg.price_adjustment|stringformat:"s"|slice:"1:" }}
                                                 {% endif %}
                                             </p>
-                                            <p class="mb-0 text-muted small">
-                                                <em>Base: €{{ race.base_price_individual }}</em>
+                                            <p class="mb-0 fw-bold text-primary">
+                                                Final Price:
+                                                €{{ final_prices|dict_get:pkg.id|floatformat:2 }}
                                             </p>
                                         </p>
                                     </div>
@@ -179,7 +180,7 @@
     
                     optionsContainer.innerHTML = '';
     
-                    fetch(`/race/package/${packageId}/options/`)
+                    fetch(`/ajax/race/package/${packageId}/options/`)
                         .then(res => res.json())
                         .then(data => {
                             data.package_options.forEach(option => {

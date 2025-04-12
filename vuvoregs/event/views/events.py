@@ -1,7 +1,9 @@
 # Built-in libraries
 
+from django.db.models import Q
+
 # Django core imports
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 
 # Local app imports
 from event.models import (
@@ -19,23 +21,15 @@ def event_list(request):
 
 # 🏁 Show races under a selected event
 def race_list(request, event_id):
-    """Display the races associated with a specific event.
+    """Display races and visible packages for a specific event."""
+    event = get_object_or_404(Event, pk=event_id)
 
-    If the event doesn't exist, show an appropriate message.
-    """
-    try:
-        event = Event.objects.get(pk=event_id)
-        races = Race.objects.filter(event=event)
-    except Event.DoesNotExist:
-        return render(
-            request,
-            "registration/race_list.html",
-            {
-                "event": None,
-                "races": [],
-                "message": "Registrations are closed for this event.",
-            },
-        )
+    races = Race.objects.filter(event=event).prefetch_related(
+        "packages",  # fetch RacePackage objects
+        "packages__races",  # required for get_current_final_price()
+        "time_based_prices",  # active pricing
+    )
+
     return render(
         request,
         "registration/race_list.html",

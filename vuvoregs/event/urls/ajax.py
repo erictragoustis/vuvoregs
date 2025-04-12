@@ -13,6 +13,8 @@ from event.views import (
     special_price_options,
 )
 
+app_name = "ajax"
+
 urlpatterns = [
     path(
         "race/package/<int:package_id>/options/",

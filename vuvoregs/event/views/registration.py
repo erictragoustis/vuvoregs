@@ -1,7 +1,12 @@
 # Django core imports
+from decimal import Decimal
+
 from django.contrib import messages
 from django.db import transaction
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.utils.timezone import now
 from django.views.decorators.http import require_http_methods
 
 # Local app imports
@@ -21,12 +26,30 @@ def registration(request, race_id):
     """
     race = get_object_or_404(Race, pk=race_id)
     event = race.event
+    current_time = timezone.now()
+    adjustment = None
+
+    for tbp in race.time_based_prices.all():
+        if tbp.start_date <= current_time <= tbp.end_date:
+            adjustment = tbp
+            break
 
     # 🔒 Block registration if event is closed
     if not event.is_registration_open():
         return render(request, "registration/closed.html", {"event": event})
 
-    packages = RacePackage.objects.filter(event=event, races=race)
+    packages = RacePackage.objects.filter(event=event, races=race).filter(
+        Q(visible_until__isnull=True) | Q(visible_until__gt=current_time)
+    )
+
+    final_prices = {}
+    base_price = race.base_price_individual
+    time_adj = adjustment.price_adjustment if adjustment else Decimal("0.00")
+
+    for package in packages:
+        final = base_price + package.price_adjustment + time_adj
+        final_prices[package.id] = final
+
     AthleteFormSet = athlete_formset_factory(race)
 
     if request.method == "POST":
@@ -86,6 +109,8 @@ def registration(request, race_id):
             "race": race,
             "formset": formset,
             "min_participants": race.min_participants or 1,
+            "time_based_adjustment": adjustment,
+            "final_prices": final_prices,
         },
     )
 

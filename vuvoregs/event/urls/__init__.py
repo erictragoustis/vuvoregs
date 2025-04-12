@@ -10,5 +10,5 @@ urlpatterns = [
     path("", include("event.urls.events")),
     path("", include("event.urls.registration")),
     path("", include("event.urls.payment")),
-    path("ajax/", include("event.urls.ajax")),
+    path("ajax/", include("event.urls.ajax", namespace="ajax")),
 ]

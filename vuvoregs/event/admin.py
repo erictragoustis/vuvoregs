@@ -26,7 +26,7 @@ from .models.athlete import Athlete
 from .models.event import Event, PickUpPoint
 from .models.package import RacePackage, RaceSpecialPrice
 from .models.payment import Payment
-from .models.race import Race, RaceType
+from .models.race import Race, RaceType, TimeBasedPrice
 from .models.registration import Registration
 from .models.terms import TermsAndConditions
 
@@ -129,7 +129,12 @@ class RaceAdmin(admin.ModelAdmin):
 
 @admin.register(RacePackage)
 class RacePackageAdmin(admin.ModelAdmin):
-    list_display = ("name", "event", "price_adjustment")
+    list_display = (
+        "name",
+        "event",
+        "price_adjustment",
+        "visible_until",
+    )
     list_filter = ("event",)
     search_fields = ("name", "event__name")
     ordering = ("event", "name")
@@ -410,3 +415,19 @@ class RaceSpecialPriceAdmin(admin.ModelAdmin):
     list_display = ("label", "race", "discount_amount")
     list_filter = ("race",)
     search_fields = ("label", "race__name")
+
+
+class TimeBasedPriceInline(admin.TabularInline):
+    model = TimeBasedPrice
+    extra = 1
+
+
+# iwill refactor later
+
+
+class RaceAdmin(admin.ModelAdmin):
+    inlines = [TimeBasedPriceInline]
+
+
+admin.site.unregister(Race)  # If already registered
+admin.site.register(Race, RaceAdmin)

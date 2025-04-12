@@ -8,6 +8,7 @@ import json
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 
 class Athlete(models.Model):
@@ -70,6 +71,14 @@ class Athlete(models.Model):
         self.selected_options = json.loads(json.dumps(self.selected_options))
         super().save(*args, **kwargs)
 
+    def get_time_based_adjustment(self) -> float:
+        """Return the price adjustment for the current time window, if any."""
+        now = timezone.now()
+        for tbp in self.race.time_based_prices.all():
+            if tbp.start_date <= now <= tbp.end_date:
+                return tbp.price_adjustment
+        return 0
+
     def get_final_price(self):
         """Calculate the athlete's final price.
 
@@ -87,8 +96,10 @@ class Athlete(models.Model):
 
         # Apply race-level special price (discount)
         discount = self.special_price.discount_amount if self.special_price else 0
+        package_adjustment = self.package.price_adjustment
+        time_adjustment = self.get_time_based_adjustment()
 
-        return base_price - discount + self.package.price_adjustment
+        return base_price + package_adjustment + time_adjustment - discount
 
     def clean(self):
         """Validate that all required package options are selected."""
