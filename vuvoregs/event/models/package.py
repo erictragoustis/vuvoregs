@@ -32,9 +32,6 @@ class RacePackage(models.Model):
         help_text="Package will be hidden after this datetime. Leave blank to always show.",
     )
     races = models.ManyToManyField("event.Race", related_name="packages")
-    team_discount_price = models.DecimalField(
-        max_digits=10, decimal_places=2, null=True, blank=True
-    )
 
     class Meta:
         constraints = [

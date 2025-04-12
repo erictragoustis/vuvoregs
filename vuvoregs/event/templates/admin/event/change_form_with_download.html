@@ -1,0 +1,12 @@
+{% extends "admin/change_form.html" %}
+{% block content %}
+    <div class="mb-3 d-flex gap-2">
+        {% if download_template_url %}
+            <a class="btn btn-outline-primary" href="{{ download_template_url }}">📥 Download Excel Template</a>
+        {% endif %}
+        {% if upload_excel_url %}
+            <a class="btn btn-outline-success" href="{{ upload_excel_url }}">📤 Upload Team Excel</a>
+        {% endif %}
+    </div>
+    {{ block.super }}
+{% endblock %}

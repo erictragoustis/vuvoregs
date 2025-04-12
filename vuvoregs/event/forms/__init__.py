@@ -4,7 +4,11 @@ This package includes forms for managing event-related data such as
 admin forms, athlete forms, and billing forms.
 """
 
-from .admin_forms import BibNumberImportForm, ExportEventAthletesForm  # noqa: F401
+from .admin_forms import (
+    BibNumberImportForm,
+    ExportEventAthletesForm,
+    TeamExcelUploadForm,
+)  # noqa: F401
 from .athlete import (  # noqa: F401
     AthleteForm,
     MinParticipantsFormSet,

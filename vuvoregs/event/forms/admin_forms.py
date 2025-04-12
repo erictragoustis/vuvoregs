@@ -26,3 +26,16 @@ class ExportEventAthletesForm(forms.Form):
     event = forms.ModelChoiceField(
         queryset=Event.objects.all(), required=True, label="Select Event"
     )
+
+
+class TeamExcelUploadForm(forms.Form):
+    """Form for uploading an Excel file containing team data.
+
+    This form allows admins to upload an Excel file (.xlsx) with team details.
+    Ensure the file uses the provided template and that race_name and package_name match exactly.
+    """
+
+    excel_file = forms.FileField(
+        label="Upload Excel File (.xlsx)",
+        help_text="Use the downloaded template and make sure race_name and package_name match exactly.",
+    )

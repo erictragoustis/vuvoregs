@@ -1,0 +1,44 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% block content %}
+    <div class="container">
+        <h1 class="mb-3">{{ title }}</h1>
+        <form method="post" enctype="multipart/form-data" class="form-horizontal">
+            {% csrf_token %}
+            <div class="card shadow-sm">
+                <div class="card-body">{{ form.as_p }}</div>
+                <div class="card-footer text-end">
+                    <a href="{% url 'admin:event_event_changelist' %}"
+                       class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary">Upload & Import Athletes</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    {% if error_log %}
+        <!-- Error Modal (non-blocking) -->
+        <div class="modal show"
+             id="errorModal"
+             tabindex="-1"
+             role="dialog"
+             aria-labelledby="errorModalLabel"
+             style="display: block"
+             aria-modal="true">
+            <div class="modal-dialog modal-lg" role="document">
+                <div class="modal-content border-danger">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title" id="errorModalLabel">Validation Errors</h5>
+                    </div>
+                    <div class="modal-body">
+                        <ul class="mb-0">
+                            {% for error in error_log %}<li>{{ error }}</li>{% endfor %}
+                        </ul>
+                    </div>
+                    <div class="modal-footer">
+                        <a href="" class="btn btn-secondary">Close and Fix File</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endblock %}

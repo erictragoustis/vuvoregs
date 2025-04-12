@@ -1,3 +1,10 @@
+"""Admin configuration for the event management application.
+
+This module defines custom admin interfaces, forms, and actions for managing
+events, athletes, registrations, payments, and related entities in the Django
+admin panel.
+"""
+
 # 🔧 Core Python imports
 import csv
 import io
@@ -8,18 +15,21 @@ from django.conf import settings
 
 # 🧩 Django core admin functionality
 from django.contrib import admin, messages
+from django.db import transaction
 
 # 🌐 HTTP, routing, and utilities
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.test import RequestFactory
-from django.urls import reverse
+from django.urls import path, reverse
 from django.utils.html import format_html
 
 # 🧱 Third-party widgets
 from django_json_widget.widgets import JSONEditorWidget
+from openpyxl import load_workbook
 
-from .forms import BibNumberImportForm, ExportEventAthletesForm
+from .excel import generate_event_template
+from .forms import BibNumberImportForm, ExportEventAthletesForm, TeamExcelUploadForm
 
 # 📦 Local app models and forms
 from .models.athlete import Athlete
@@ -92,39 +102,216 @@ class EventAdmin(admin.ModelAdmin):
     list_filter = ("is_available",)
     search_fields = ("name", "location")
     ordering = ("-date",)
+    change_form_template = "admin/event/change_form_with_download.html"
 
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path(
+                "<int:event_id>/download-template/",
+                self.admin_site.admin_view(self.download_template),
+                name="event_download_template",
+            ),
+            path(
+                "<int:event_id>/upload-teams/",
+                self.admin_site.admin_view(self.upload_team_excel),
+                name="event_upload_teams",
+            ),
+        ]
+        return custom + urls
 
-@admin.register(RaceType)
-class RaceTypeAdmin(admin.ModelAdmin):
-    list_display = ("name",)
-    search_fields = ("name",)
+    def download_template(self, request, event_id):
+        event = get_object_or_404(Event, pk=event_id)
+        return generate_event_template(event)
 
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        extra_context["download_template_url"] = reverse(
+            "admin:event_download_template", args=[object_id]
+        )
+        extra_context["upload_excel_url"] = reverse(
+            "admin:event_upload_teams", args=[object_id]
+        )
+        return super().change_view(
+            request, object_id, form_url, extra_context=extra_context
+        )
 
-@admin.register(Race)
-class RaceAdmin(admin.ModelAdmin):
-    list_display = (
-        "name",
-        "race_type",
-        "race_km",
-        "event",
-        "base_price_individual",
-        "base_price_team",
-    )
-    list_filter = ("event", "race_type")
-    search_fields = ("race_type__name", "event__name")
-    ordering = ("event", "race_type")
-    fields = (
-        "event",
-        "name",
-        "race_type",
-        "race_km",
-        "max_participants",
-        "min_participants",
-        "team_discount_threshold",
-        "base_price_individual",
-        "base_price_team",
-        "image",
-    )
+    def upload_team_excel(self, request, *args, **kwargs):
+        event_id = kwargs.get("event_id")
+        event = get_object_or_404(Event, pk=event_id)
+
+        context = {
+            "form": TeamExcelUploadForm(),
+            "event": event,
+            "title": f"Team Upload for {event.name}",
+            **self.admin_site.each_context(request),
+        }
+
+        if request.method == "POST":
+            form = TeamExcelUploadForm(request.POST, request.FILES)
+            context["form"] = form
+            error_log = []
+
+            if form.is_valid():
+                wb = load_workbook(form.cleaned_data["excel_file"])
+                ws = wb.active
+                headers = [cell.value for cell in ws[1]]
+
+                validated_rows = []
+                row_index = 2
+
+                for row in ws.iter_rows(min_row=2, values_only=True):
+                    data = dict(zip(headers, row, strict=False))
+                    row_has_error = False
+
+                    if not data.get("first_name") or not data.get("last_name"):
+                        error_log.append(
+                            f"Row {row_index}: Missing first_name or last_name."
+                        )
+                        row_index += 1
+                        continue
+
+                    try:
+                        race = Race.objects.get(name=data["race_name"], event=event)
+                    except Race.DoesNotExist:
+                        error_log.append(
+                            f"Row {row_index}: Race '{data.get('race_name')}' not found."
+                        )
+                        row_index += 1
+                        continue
+
+                    try:
+                        package = RacePackage.objects.get(
+                            name=data["package_name"], event=event, races=race
+                        )
+                    except RacePackage.DoesNotExist:
+                        error_log.append(
+                            f"Row {row_index}: Package '{data.get('package_name')}' not found for race '{race.name}'."
+                        )
+                        row_index += 1
+                        continue
+
+                    selected_options = {}
+                    package_options = {
+                        opt.name: opt for opt in package.packageoption_set.all()
+                    }
+
+                    for k, v in data.items():
+                        if k and str(k).startswith("option_") and v:
+                            opt_name = k.replace("option_", "").strip()
+                            value = str(v).strip()
+
+                            option = package_options.get(opt_name)
+                            if not option:
+                                error_log.append(
+                                    f"Row {row_index}: Unknown option '{opt_name}' for package '{package.name}'."
+                                )
+                                row_has_error = True
+                                break
+
+                            valid_choices = option.options_json
+                            match = next(
+                                (
+                                    c
+                                    for c in valid_choices
+                                    if c.lower() == value.lower()
+                                ),
+                                None,
+                            )
+
+                            if not match:
+                                error_log.append(
+                                    f"Row {row_index}: Invalid value '{value}' for option '{opt_name}'. "
+                                    f"Valid options: {', '.join(valid_choices)}"
+                                )
+                                row_has_error = True
+                                break
+
+                            selected_options[opt_name] = match
+
+                    for opt_name, opt in package_options.items():
+                        if opt.options_json and opt_name not in selected_options:
+                            # Only flag as missing if it wasn’t already attempted (no invalid attempt earlier)
+                            provided_keys = [
+                                k.replace("option_", "").strip()
+                                for k in data.keys()
+                                if k and str(k).startswith("option_")
+                            ]
+                            if opt_name not in provided_keys:
+                                error_log.append(
+                                    f"Row {row_index}: Missing required option '{opt_name}' for package '{package.name}'."
+                                )
+                                row_has_error = True
+                                break
+
+                    if not row_has_error:
+                        validated_rows.append((data, race, package, selected_options))
+
+                    row_index += 1
+
+                if error_log:
+                    context["error_log"] = error_log
+                    return render(request, "admin/team_excel_upload.html", context)
+
+                with transaction.atomic():
+                    reg = Registration.objects.create(event=event)
+                    for data, race, package, selected_options in validated_rows:
+                        Athlete.objects.create(
+                            registration=reg,
+                            race=race,
+                            package=package,
+                            first_name=data.get("first_name", "").strip(),
+                            last_name=data.get("last_name", "").strip(),
+                            email=data.get("email", ""),
+                            phone=data.get("phone", ""),
+                            dob=data.get("dob"),
+                            sex=str(data.get("sex", "")).upper(),
+                            hometown=data.get("hometown", ""),
+                            team=data.get("team", ""),
+                            selected_options=selected_options,
+                        )
+                    reg.total_amount = sum(
+                        a.package.get_current_final_price() for a in reg.athletes.all()
+                    )
+                    reg.save()
+
+                messages.success(
+                    request, f"✅ Successfully uploaded {len(validated_rows)} athletes."
+                )
+                return redirect("admin:event_event_changelist")
+
+        return render(request, "admin/team_excel_upload.html", context)
+
+    @admin.register(RaceType)
+    class RaceTypeAdmin(admin.ModelAdmin):
+        list_display = ("name",)
+        search_fields = ("name",)
+
+    @admin.register(Race)
+    class RaceAdmin(admin.ModelAdmin):
+        list_display = (
+            "name",
+            "race_type",
+            "race_km",
+            "event",
+            "base_price_individual",
+            "base_price_team",
+        )
+        list_filter = ("event", "race_type")
+        search_fields = ("race_type__name", "event__name")
+        ordering = ("event", "race_type")
+        fields = (
+            "event",
+            "name",
+            "race_type",
+            "race_km",
+            "max_participants",
+            "min_participants",
+            "team_discount_threshold",
+            "base_price_individual",
+            "base_price_team",
+            "image",
+        )
 
 
 @admin.register(RacePackage)
@@ -235,7 +422,7 @@ class AthleteAdmin(admin.ModelAdmin):
         "race",
         "package",
         "pickup_point",
-        "get_status",
+        "dob",
         "special_price",
         "formatted_selected_options",
     )
@@ -243,6 +430,19 @@ class AthleteAdmin(admin.ModelAdmin):
     search_fields = ("first_name", "last_name", "race__name", "email")
     readonly_fields = ["formatted_selected_options"]
     actions = [export_athletes_to_csv]
+    fields = (
+        "first_name",
+        "last_name",
+        "dob",
+        "sex",
+        "email",
+        "phone",
+        "pickup_point",
+        "race",
+        "package",
+        "registration",
+        "selected_options",
+    )
 
     def get_status(self, obj):
         return obj.registration.status if obj.registration else "-"
