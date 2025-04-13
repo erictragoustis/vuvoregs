@@ -34,7 +34,7 @@ from .forms import BibNumberImportForm, ExportEventAthletesForm, TeamExcelUpload
 # 📦 Local app models and forms
 from .models.athlete import Athlete
 from .models.event import Event, PickUpPoint
-from .models.package import RacePackage, RaceSpecialPrice
+from .models.package import RacePackage, RaceSpecialPrice, PackageOption
 from .models.payment import Payment
 from .models.race import Race, RaceType, TimeBasedPrice
 from .models.registration import Registration
@@ -314,6 +314,11 @@ class EventAdmin(admin.ModelAdmin):
         )
 
 
+class RacePackageOptionInline(admin.TabularInline):
+    model = PackageOption
+    extra = 1
+
+
 @admin.register(RacePackage)
 class RacePackageAdmin(admin.ModelAdmin):
     list_display = (
@@ -325,6 +330,7 @@ class RacePackageAdmin(admin.ModelAdmin):
     list_filter = ("event",)
     search_fields = ("name", "event__name")
     ordering = ("event", "name")
+    inlines = [RacePackageOptionInline]
 
 
 @admin.register(Registration)
@@ -562,7 +568,6 @@ def simulate_failure(modeladmin, request, queryset):
 
 
 @admin.action(description="🚀 Simulate Webhook for selected payments")
-@admin.action(description="🚀 Simulate Webhook for selected payments")
 def simulate_webhook(modeladmin, request, queryset):
     from .views import payment_webhook
 
@@ -610,11 +615,9 @@ class PaymentAdmin(admin.ModelAdmin):
     actions = [simulate_success, simulate_failure, simulate_webhook]
 
 
-@admin.register(RaceSpecialPrice)
-class RaceSpecialPriceAdmin(admin.ModelAdmin):
-    list_display = ("label", "race", "discount_amount")
-    list_filter = ("race",)
-    search_fields = ("label", "race__name")
+class RaceSpecialPriceInline(admin.TabularInline):
+    model = RaceSpecialPrice
+    extra = 1
 
 
 class TimeBasedPriceInline(admin.TabularInline):
@@ -626,7 +629,7 @@ class TimeBasedPriceInline(admin.TabularInline):
 
 
 class RaceAdmin(admin.ModelAdmin):
-    inlines = [TimeBasedPriceInline]
+    inlines = [TimeBasedPriceInline, RaceSpecialPriceInline]
 
 
 admin.site.unregister(Race)  # If already registered

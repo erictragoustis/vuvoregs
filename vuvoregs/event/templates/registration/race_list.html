@@ -36,17 +36,17 @@
                                         {% if package.is_visible_now %}
                                             <tr>
                                                 <td class="fw-medium">{{ package.name }}</td>
-                                                <td class="fw-bold text-primary">€{{ package.get_current_final_price|floatformat:2 }}</td>
+                                                <td class="fw-bold text-primary">€{{ package.get_final_price|floatformat:2 }}</td>
                                                 <td>
-                                                    {% if package.race.has_team_discount %}
-                                                        €{{ package.race.base_price_team|floatformat:2 }}
-                                                        <small class="text-muted">({{ package.race.team_discount_threshold }}+)</small>
+                                                    {% if race.has_team_discount %}
+                                                        €{{ package.team_final_price|floatformat:2 }}
+                                                        <small class="text-muted">({{ race.team_discount_threshold }}+)</small>
                                                     {% else %}
                                                         <em>—</em>
                                                     {% endif %}
                                                 </td>
                                                 <td>
-                                                    {% for sp in package.race.special_prices.all %}
+                                                    {% for sp in race.special_prices.all %}
                                                         <div>{{ sp.label }} (−€{{ sp.discount_amount|floatformat:2 }})</div>
                                                     {% empty %}
                                                         <em>—</em>
@@ -69,7 +69,7 @@
                 {% for race in races %}
                     <div class="col-md-6 col-lg-4">
                         <div class="card h-100 position-relative border border-1 border-info rounded-3 shadow-sm">
-                            {% with label=race.get_current_pricing_label %}
+                            {% with label=race.get_pricing_label %}
                                 {% if label %}
                                     <div class="position-absolute top-0 end-0 bg-primary text-white px-3 py-1 fw-bold rounded-start"
                                          style="font-size: 0.75rem;
@@ -99,7 +99,7 @@
                                         {% if package.is_visible_now and forloop.first %}
                                             <p class="fw-bold text-dark small mb-3">
                                                 <i class="fa-solid fa-tag me-1 text-muted"></i>
-                                                From <span class="text-primary">€{{ package.get_current_final_price|floatformat:2 }}</span>
+                                                From <span class="text-primary">€{{ package.final_price|floatformat:2 }}</span>
                                             </p>
                                         {% endif %}
                                     {% endfor %}

@@ -1,27 +1,18 @@
-"""View layer responsible for managing the full registration flow, including.
+"""AJAX and fallback views for dynamic UI and payment status updates.
 
-- Displaying upcoming events and associated races
-- Handling multi-athlete race registration forms
-- Dynamically providing package and pricing options via AJAX
-- Integrating payment workflows (creation, confirmation, failure handling)
-- Responding to webhooks and verifying payment statuses
-
-This module orchestrates core interactions between athletes,
-events, and the payment system.
+Includes:
+- Dynamic package/special price loaders
+- Country/region/city population for billing form
+- Manual fallback payment status refresh
 """
 
-# Built-in libraries
-
 from cities_light.models import City, Region
-
-# Django core imports
+from django.conf import settings
 from django.contrib import messages
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_GET
 
-# Third-party packages
-# Local app imports
 from event.models import (
     RacePackage,
     RaceSpecialPrice,
@@ -29,11 +20,19 @@ from event.models import (
 )
 
 
-# 📦 Return package options (AJAX endpoint)
+@require_GET
 def package_options(request, package_id):
-    """Return JSON response containing available options for a given package.
+    """Return all options related to a RacePackage as JSON.
 
-    Used by dynamic UI elements (AJAX).
+    Used by JS when user selects a package in the form.
+
+    Response format:
+        {
+            "package_options": [
+                {"id": 1, "name": "T-shirt Size", "options_json": [...]},
+                ...
+            ]
+        }
     """
     try:
         package = RacePackage.objects.get(pk=package_id)
@@ -42,7 +41,11 @@ def package_options(request, package_id):
 
     return JsonResponse({
         "package_options": [
-            {"id": opt.id, "name": opt.name, "options_json": opt.options_json}
+            {
+                "id": opt.id,
+                "name": opt.name,
+                "options_json": opt.options_json,
+            }
             for opt in package.packageoption_set.all()
         ]
     })
@@ -50,7 +53,16 @@ def package_options(request, package_id):
 
 @require_GET
 def special_price_options(request, race_id):
-    """Return all special price options available for a given race."""
+    """Return all available special pricing options for a given race.
+
+    Response format:
+        {
+            "special_prices": [
+                {"id": 3, "label": "Student Discount", "discount_amount": "5.00"},
+                ...
+            ]
+        }
+    """
     special_prices = RaceSpecialPrice.objects.filter(race_id=race_id)
 
     return JsonResponse({
@@ -65,23 +77,35 @@ def special_price_options(request, race_id):
     })
 
 
+@require_GET
 def load_regions(request):
+    """Return regions for a given country ID (for dynamic billing selection).
+
+    Response format:
+        {"regions": [{"id": 1, "name": "Attica"}, ...]}
+    """
     country_id = request.GET.get("country_id")
     regions = Region.objects.filter(country_id=country_id).order_by("name")
     return JsonResponse({"regions": list(regions.values("id", "name"))})
 
 
+@require_GET
 def load_cities(request):
+    """Return cities for a given region ID (for dynamic billing selection).
+
+    Response format:
+        {"cities": [{"id": 2, "name": "Athens"}, ...]}
+    """
     region_id = request.GET.get("region_id")
     cities = City.objects.filter(region_id=region_id).order_by("name")
     return JsonResponse({"cities": list(cities.values("id", "name"))})
 
 
-# 🔁 Manual payment status checker — updates registration status from payment
+@require_GET
 def check_payment_status(request, registration_id):
-    """Manually fetch and update the status of a payment related to a registration.
+    """Manually re-check the payment status of a registration.
 
-    Used for fallback or testing when auto webhooks aren't triggered.
+    Used as a fallback when webhook notifications fail or are delayed.
     """
     registration = get_object_or_404(Registration, id=registration_id)
 
@@ -89,5 +113,8 @@ def check_payment_status(request, registration_id):
         messages.error(request, "No payment found for this registration.")
         return redirect("payment_failure", registration_id=registration.id)
 
-    payment = registration.payment
-    payment.fetch()
+    if settings.DEBUG:
+        print("🔄 Manually fetching payment status for registration", registration.id)
+
+    registration.payment.fetch()
+    return redirect("payment_success", registration_id=registration.id)

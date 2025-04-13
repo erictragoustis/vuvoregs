@@ -1,34 +1,28 @@
-"""View layer responsible for managing the full registration flow, including.
+"""Viva Wallet integration views.
 
-- Displaying upcoming events and associated races
-- Handling multi-athlete race registration forms
-- Dynamically providing package and pricing options via AJAX
-- Integrating payment workflows (creation, confirmation, failure handling)
-- Responding to webhooks and verifying payment statuses
-
-This module orchestrates core interactions between athletes,
-events, and the payment system.
+Handles:
+- Redirection flow after checkout
+- Webhook processing (payment success/failure)
+- Transaction polling via AJAX
 """
 
-# Built-in libraries
 import json
 
-# Django core imports
+from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
 
-# Local app imports
-from event.models import (
-    Payment,
-)
-
-# Third-party packages
+from event.models import Payment
 from payments import PaymentStatus
 
 
 def viva_success_redirect_handler(request):
+    """Intermediate view that handles ?t=<transaction_id> redirects from Viva Wallet.
+
+    Redirects to our internal success endpoint.
+    """
     transaction_id = request.GET.get("t")
     if not transaction_id:
         return HttpResponse("Missing transaction ID", status=400)
@@ -37,13 +31,17 @@ def viva_success_redirect_handler(request):
 
 
 def viva_payment_success(request, transaction_id):
+    """Final success handler after a confirmed payment.
+
+    - Marks payment and registration as confirmed if not already
+    - If payment is not found yet (due to webhook delay), show 'pending' state
+    - Redirects to regular success view
+    """
     transaction_id = transaction_id.strip()
-    print("🔎 Looking for payment with transaction_id:", transaction_id)
 
     payment = Payment.objects.filter(transaction_id__iexact=transaction_id).first()
 
     if not payment:
-        # Fallback if webhook hasn't saved it yet
         return render(
             request,
             "registration/payment_pending.html",
@@ -55,87 +53,121 @@ def viva_payment_success(request, transaction_id):
 
     if payment.status != PaymentStatus.CONFIRMED:
         payment.status = PaymentStatus.CONFIRMED
-        payment.save()
+        payment.save(update_fields=["status"])
 
         if registration:
             registration.payment_status = "paid"
             registration.status = "completed"
-            registration.save()
+            registration.save(update_fields=["payment_status", "status"])
 
     return redirect("payment_success", registration_id=registration.id)
 
 
 def viva_payment_failure(request, transaction_id):
+    """Handler for failed/cancelled Viva Wallet payments.
+
+    - Marks payment + registration as failed if not already
+    - Redirects to payment_failure view
+    """
     payment = get_object_or_404(Payment, transaction_id=transaction_id)
     registration = getattr(payment, "registration", None)
+
     if not registration:
         return HttpResponse(
-            "Payment found but not linked to any registration.", status=500
+            "Payment found but not linked to any registration.",
+            status=500,
         )
 
     if payment.status != PaymentStatus.ERROR:
         payment.status = PaymentStatus.ERROR
-        payment.save()
+        payment.save(update_fields=["status"])
 
-        if registration:
-            registration.payment_status = "failed"
-            registration.status = "failed"
-            registration.save()
+        registration.payment_status = "failed"
+        registration.status = "failed"
+        registration.save(update_fields=["payment_status", "status"])
 
     return redirect("payment_failure", registration_id=registration.id)
 
 
 @csrf_exempt
 def payment_webhook(request):
+    """Viva Wallet webhook listener.
+
+    Handles payment success (1796) and failure (1798) notifications.
+
+    Payload structure:
+        {
+            "EventTypeId": 1796,
+            "EventData": {
+                "TransactionId": "...",
+                "OrderCode": "..."
+            }
+        }
+
+    Returns:
+        JsonResponse
+    """
     try:
         payload = json.loads(request.body)
         event_type_id = payload.get("EventTypeId")
         transaction_data = payload.get("EventData", {})
         transaction_id = transaction_data.get("TransactionId")
         order_code = transaction_data.get("OrderCode")
+        if settings.DEBUG:
+            print("📬 Webhook received:", event_type_id, transaction_id)
 
-        print("📬 Webhook received:", event_type_id, transaction_id)
-
-        # ✅ Lookup by order_code, not transaction_id
         payment = Payment.objects.filter(order_code=str(order_code)).first()
         if not payment:
             return JsonResponse(
-                {"status": "error", "message": "Payment not found"}, status=404
+                {"status": "error", "message": "Payment not found"},
+                status=404,
             )
 
         registration = getattr(payment, "registration", None)
 
-        # ✅ Save the real transaction_id
+        # Save transaction ID if not already present
         if not payment.transaction_id:
             payment.transaction_id = transaction_id
             payment.save(update_fields=["transaction_id"])
 
         if event_type_id == 1796:  # Payment successful
             payment.status = PaymentStatus.CONFIRMED
-            payment.save()
+            payment.save(update_fields=["status"])
 
             if registration:
                 registration.status = "completed"
                 registration.payment_status = "paid"
-                registration.save()
+                registration.save(update_fields=["status", "payment_status"])
 
         elif event_type_id == 1798:  # Payment failed
             payment.status = PaymentStatus.ERROR
-            payment.save()
+            payment.save(update_fields=["status"])
 
             if registration:
                 registration.status = "failed"
                 registration.payment_status = "failed"
-                registration.save()
+                registration.save(update_fields=["status", "payment_status"])
 
         return JsonResponse({"status": "success"})
 
     except Exception as e:
-        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+        return JsonResponse(
+            {"status": "error", "message": str(e)},
+            status=500,
+        )
 
 
 @require_GET
 def check_transaction_status(request, transaction_id):
+    """AJAX endpoint to check status of a given Viva Wallet transaction.
+
+    Used when a webhook might not have yet updated the UI.
+
+    Returns:
+        - "confirmed" + redirect URL if paid
+        - "waiting" if still pending
+        - "not_found" if unknown transaction
+    """
     payment = Payment.objects.filter(transaction_id=transaction_id).first()
 
     if not payment:

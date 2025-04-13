@@ -6,7 +6,6 @@ Defines models for Packages.
 from decimal import Decimal
 
 from django.db import models
-from django.db.models import Q
 from django.utils import timezone
 
 # from event.models import Event, Race
@@ -29,11 +28,13 @@ class RacePackage(models.Model):
     visible_until = models.DateTimeField(
         null=True,
         blank=True,
-        help_text="Package will be hidden after this datetime. Leave blank to always show.",
+        help_text="Package will be hidden after this datetime. Leave blank to always show.",  # noqa: E501
     )
     races = models.ManyToManyField("event.Race", related_name="packages")
 
     class Meta:
+        """Meta information for the RacePackage model."""
+
         constraints = [
             models.UniqueConstraint(
                 fields=["event", "name"], name="unique_package_per_event"
@@ -41,6 +42,7 @@ class RacePackage(models.Model):
         ]
 
     def __str__(self):
+        """Return a string representation of the race package."""
         return f"{self.name} - ({self.event.name})"
 
     def is_visible_now(self):
@@ -62,14 +64,27 @@ class RacePackage(models.Model):
                 return tbp.price_adjustment
         return Decimal("0.00")
 
-    def get_current_final_price(self):
-        """Return final price including race base, package adjustment, and time-based adjustment."""
+    def get_final_price(self, is_team: bool = False) -> Decimal:
+        """Return the final price of this package including.
+
+        - base race price (individual or team)
+        - package adjustment
+        - time-based adjustment
+        """
         race = self.get_race()
         if not race:
-            return None
-        base = race.base_price_individual or Decimal("0.00")
-        adjustment = self.price_adjustment or Decimal("0.00")
-        return base + adjustment + self.get_active_time_adjustment()
+            return Decimal("0.00")
+
+        if is_team and race.has_team_discount():
+            base = race.base_price_team
+        else:
+            base = race.base_price_individual
+
+        return (
+            base
+            + (self.price_adjustment or Decimal("0.00"))
+            + self.get_active_time_adjustment()
+        )
 
     def get_savings_amount(self):
         """Return savings compared to race base price, if any."""
@@ -86,11 +101,23 @@ class RacePackage(models.Model):
         return self.get_current_final_price() < race.base_price_individual
 
     def has_team_discount(self):
+        """Check if this package has a team discount available."""
         return self.team_discount_threshold and self.team_discount_price
 
     @property
     def race(self):
+        """Return the first race associated with this package."""
         return self.races.first()
+
+    @property
+    def final_price(self) -> Decimal:
+        """Shortcut for template use: returns individual final price."""
+        return self.get_final_price(is_team=False)
+
+    @property
+    def team_final_price(self) -> Decimal:
+        """Returns the final team price for use in templates."""
+        return self.get_final_price(is_team=True)
 
 
 class PackageOption(models.Model):
@@ -124,7 +151,15 @@ class RaceSpecialPrice(models.Model):
     race = models.ForeignKey(
         "Race", on_delete=models.CASCADE, related_name="special_prices"
     )
+    name = models.CharField(
+        max_length=255,
+        help_text="Name of the special price, e.g., 'Early Bird Discount'",
+    )
     label = models.CharField(max_length=255)
+    description = models.TextField(
+        blank=True,
+        help_text="Description of the special price, if applicable.",
+    )
 
     discount_amount = models.DecimalField(
         max_digits=10,

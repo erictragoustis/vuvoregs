@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 import os
 from pathlib import Path
 
+from django.utils.translation import gettext_lazy as _
 import environ
 
 env = environ.Env(DEBUG=(bool, False))
@@ -135,10 +136,20 @@ AUTH_PASSWORD_VALIDATORS = [
 # INTERNATIONALIZATION
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
-LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+LANGUAGE_CODE = "en"
+
+LANGUAGES = [
+    ("en", _("English")),
+    ("el", _("Greek")),  # Add any other languages you need
+]
+
 USE_I18N = True
+USE_L10N = True
 USE_TZ = True
+
+LOCALE_PATHS = [
+    BASE_DIR / "locale",  # this is where translations will live
+]
 
 
 # STATIC AND MEDIA FILES

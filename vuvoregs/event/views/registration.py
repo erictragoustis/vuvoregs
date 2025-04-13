@@ -1,4 +1,5 @@
-# Django core imports
+"""Handles the athlete registration process and agreement to terms."""
+
 from decimal import Decimal
 
 from django.contrib import messages
@@ -6,49 +7,53 @@ from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.utils.timezone import now
 from django.views.decorators.http import require_http_methods
 
-# Local app imports
 from event.forms import BillingForm, athlete_formset_factory
-from event.models import (
-    Race,
-    RacePackage,
-    Registration,
-)
+from event.models import Race, RacePackage, Registration
 
 
-# 📝 Handle multi-athlete registration for a race
 def registration(request, race_id):
-    """Display and process the multi-athlete registration form for a given race.
+    """Display and process the multi-athlete registration form for a race.
 
-    Enforces event registration window and race minimum participants.
+    GET: Show empty formset
+    POST: Validate athletes, create registration, and redirect to confirmation
+
+    Template:
+        registration/registration.html
+
+    Context:
+        race (Race): The selected race
+        formset (FormSet): AthleteFormSet with one or more entries
+        final_prices (dict): {package_id: calculated price}
+        time_based_adjustment (TimeBasedPrice|None)
+        min_participants (int)
     """
     race = get_object_or_404(Race, pk=race_id)
     event = race.event
     current_time = timezone.now()
-    adjustment = None
 
-    for tbp in race.time_based_prices.all():
-        if tbp.start_date <= current_time <= tbp.end_date:
-            adjustment = tbp
-            break
-
-    # 🔒 Block registration if event is closed
+    # ❌ Block if event is closed
     if not event.is_registration_open():
         return render(request, "registration/closed.html", {"event": event})
 
-    packages = RacePackage.objects.filter(event=event, races=race).filter(
-        Q(visible_until__isnull=True) | Q(visible_until__gt=current_time)
-    )
+    # ⏳ Get any active time-based adjustment
+    adjustment = race.time_based_prices.filter(
+        start_date__lte=current_time, end_date__gte=current_time
+    ).first()
 
-    final_prices = {}
-    base_price = race.base_price_individual
+    # 🎁 Filter packages for this race
+    packages = RacePackage.objects.filter(
+        event=event,
+        races=race,
+    ).filter(Q(visible_until__isnull=True) | Q(visible_until__gt=current_time))
+
+    # 💰 Precalculate final prices per package for the UI
     time_adj = adjustment.price_adjustment if adjustment else Decimal("0.00")
-
-    for package in packages:
-        final = base_price + package.price_adjustment + time_adj
-        final_prices[package.id] = final
+    final_prices = {
+        package.id: race.base_price_individual + package.price_adjustment + time_adj
+        for package in packages
+    }
 
     AthleteFormSet = athlete_formset_factory(race)
 
@@ -59,42 +64,37 @@ def registration(request, race_id):
             prefix="athlete",
             race=race,
         )
-        formset.request = request  # inject request for validation/JS logic
+        formset.request = request  # used in form logic/JS
 
         if formset.is_valid():
             with transaction.atomic():
-                # 🎯 Create the registration
+                # 📝 Create registration and athletes
                 registration_instance = Registration.objects.create(event=event)
-                total_amount = 0
-
-                # 💾 Save each athlete
                 athlete_instances = formset.save(commit=False)
-                for athlete_obj in athlete_instances:
-                    athlete_obj.registration = registration_instance
-                    athlete_obj.race = race  # required before calling get_final_price
-                    athlete_obj.save()
-                    total_amount += athlete_obj.get_final_price()
 
-                registration_instance.total_amount = total_amount
-                registration_instance.save()
+                for athlete in athlete_instances:
+                    athlete.registration = registration_instance
+                    athlete.race = race
+                    athlete.save()
 
-                # ✅ No payment creation here — defer to confirmation view
+                registration_instance.update_total_amount()
+
                 return redirect(
                     "confirm_registration", registration_id=registration_instance.id
                 )
-
         else:
-            # 🧼 JS handles UI validation — avoid repeating warnings
+            # ⚠️ Warn if not enough valid forms
             valid_forms = sum(
                 1 for form in formset if form.is_valid() and form.has_changed()
             )
             if race.min_participants and valid_forms < race.min_participants:
                 messages.warning(
                     request,
-                    f"This race requires at least {race.min_participants} participants. "  # noqa: E501
+                    f"This race requires at least {race.min_participants} participants."
                     f"Please complete at least {race.min_participants} athlete forms.",
                 )
     else:
+        # 👋 Initial GET view
         formset = AthleteFormSet(
             form_kwargs={"race": race, "packages": packages},
             prefix="athlete",
@@ -115,10 +115,22 @@ def registration(request, race_id):
     )
 
 
-# 📜 Display and handle Terms & Conditions agreement
 @require_http_methods(["GET", "POST"])
 def confirm_registration(request, registration_id):
-    """Show confirmation screen and handle agreement to T&Cs."""
+    """Show the T&Cs agreement step before payment is created.
+
+    GET: Display terms, billing email, and confirm button
+    POST: Record agreement and redirect to payment creation
+
+    Template:
+        registration/confirm.html
+
+    Context:
+        registration (Registration)
+        athletes (QuerySet[Athlete])
+        billing_form (BillingForm)
+        event (Event)
+    """
     registration = get_object_or_404(Registration, pk=registration_id)
     athletes = registration.athletes.select_related("package", "race")
     event = registration.event
@@ -127,11 +139,11 @@ def confirm_registration(request, registration_id):
     if request.method == "POST":
         if request.POST.get("agrees_to_terms") != "on":
             messages.error(
-                request, "You must agree to the Terms & Conditions before proceeding."
+                request,
+                "You must agree to the Terms & Conditions before proceeding.",
             )
             return redirect("confirm_registration", registration_id=registration.id)
 
-        # ✅ Save T&C agreement
         registration.agrees_to_terms = True
         registration.agreed_to_terms = terms
         registration.save(update_fields=["agrees_to_terms", "agreed_to_terms"])
@@ -139,10 +151,9 @@ def confirm_registration(request, registration_id):
         return redirect("create_payment", registration_id=registration.id)
 
     form = BillingForm(
-        initial={
-            "billing_email": athletes[0].email if athletes else "",
-        }
+        initial={"billing_email": athletes[0].email if athletes else ""},
     )
+
     return render(
         request,
         "registration/confirm.html",

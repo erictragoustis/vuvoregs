@@ -4,6 +4,7 @@ Defines models for events, races, registrations, athletes, and related entities.
 Includes custom managers and utility methods for querying and managing data.
 """
 
+from decimal import Decimal
 import json
 
 from django.core.exceptions import ValidationError
@@ -12,7 +13,11 @@ from django.utils import timezone
 
 
 class Athlete(models.Model):
-    """Represent an athlete participating in a race."""
+    """Represents a single athlete participating in a race.
+
+    Each athlete is linked to a registration, race, and package.
+    Package extras and race pricing rules determine final cost.
+    """
 
     registration = models.ForeignKey(
         "event.Registration",
@@ -25,23 +30,29 @@ class Athlete(models.Model):
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        help_text="Race-level special price (discount)",
+        help_text="Race-level special price (discount).",
     )
 
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
+    fathers_name = models.CharField(max_length=100, blank=True)
     team = models.CharField(max_length=100, blank=True)
     email = models.EmailField()
     phone = models.CharField(max_length=20)
+
     sex = models.CharField(
         max_length=10,
         choices=[("Male", "Male"), ("Female", "Female")],
     )
+
     dob = models.DateField(blank=True, null=True)
     hometown = models.CharField(max_length=100)
+
     race = models.ForeignKey("Race", on_delete=models.CASCADE)
     package = models.ForeignKey("RacePackage", on_delete=models.CASCADE)
+
     bib_number = models.CharField(max_length=10, blank=True)
+
     pickup_point = models.ForeignKey(
         "event.PickUpPoint",
         on_delete=models.SET_NULL,
@@ -49,41 +60,50 @@ class Athlete(models.Model):
         blank=True,
         related_name="athletes",
     )
+
     registration_date = models.DateTimeField(auto_now_add=True)
-    selected_options = models.JSONField(null=True, blank=True)
+
+    selected_options = models.JSONField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Package customization options selected by athlete (T-shirt size, etc)."
+        ),
+    )
 
     class Meta:
-        """Meta options for the Athlete model.
-
-        Defines ordering and other metadata for the Athlete model.
-        """
+        """Metadata options for the Athlete model."""
 
         ordering = ["-registration__created_at"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return a string representation of the athlete."""
-        return f"{self.first_name} {self.last_name} - {self.race.race_type.name}"
+        return f"{self.first_name} {self.last_name} – {self.race.race_type.name}"
 
-    def save(self, *args, **kwargs):
-        """Ensure 'selected_options' is JSON-serializable."""
+    def save(self, *args, **kwargs) -> None:
+        """Ensure selected options are a valid JSON dict before saving."""
         if not isinstance(self.selected_options, dict):
             self.selected_options = {}
         self.selected_options = json.loads(json.dumps(self.selected_options))
         super().save(*args, **kwargs)
 
-    def get_time_based_adjustment(self) -> float:
-        """Return the price adjustment for the current time window, if any."""
+    def get_time_based_adjustment(self) -> Decimal:
+        """Return the current time-based price adjustment for the athlete's race."""
         now = timezone.now()
-        for tbp in self.race.time_based_prices.all():
-            if tbp.start_date <= now <= tbp.end_date:
-                return tbp.price_adjustment
-        return 0
+        tbp = self.race.time_based_prices.filter(
+            start_date__lte=now, end_date__gte=now
+        ).first()
+        return tbp.price_adjustment if tbp else Decimal("0.00")
 
-    def get_final_price(self):
-        """Calculate the athlete's final price.
+    def get_total_price(self) -> Decimal:
+        """Calculate the final price for this athlete.
 
-        base price (individual or team) - race-level special discount + package adjustment
-        """  # noqa: E501
+        Formula:
+            base (team or individual)
+          + time-based adjustment
+          + package adjustment
+          - race-level special discount
+        """
         race = self.race
         registration = self.registration
         team_size = registration.athletes.count()
@@ -93,30 +113,29 @@ class Athlete(models.Model):
         )
 
         base_price = race.base_price_team if is_team else race.base_price_individual
+        discount = (
+            self.special_price.discount_amount
+            if self.special_price
+            else Decimal("0.00")
+        )
+        package_adj = self.package.price_adjustment or Decimal("0.00")
+        time_adj = self.get_time_based_adjustment()
 
-        # Apply race-level special price (discount)
-        discount = self.special_price.discount_amount if self.special_price else 0
-        package_adjustment = self.package.price_adjustment
-        time_adjustment = self.get_time_based_adjustment()
+        return base_price + package_adj + time_adj - discount
 
-        return base_price + package_adjustment + time_adjustment - discount
-
-    def clean(self):
-        """Validate that all required package options are selected."""
+    def clean(self) -> None:
+        """Validate that all required package options have been selected."""
         super().clean()
-        package = getattr(self, "package", None)
-        if package and package.packageoption_set.exists():
-            if not isinstance(self.selected_options, dict):
-                raise ValidationError("Package options must be filled out.")
-            expected_option_names = [
-                opt.name for opt in package.packageoption_set.all()
-            ]
-            missing = [
-                name
-                for name in expected_option_names
-                if name not in self.selected_options or not self.selected_options[name]
-            ]
-            if missing:
-                raise ValidationError(
-                    f"You must select a valid choice for: {', '.join(missing)}"
-                )
+        if not isinstance(self.selected_options, dict):
+            raise ValidationError("Package options must be filled out.")
+
+        expected = [opt.name for opt in self.package.packageoption_set.all()]
+        missing = [
+            name
+            for name in expected
+            if name not in self.selected_options or not self.selected_options[name]
+        ]
+        if missing:
+            raise ValidationError(
+                f"You must select a valid choice for: {', '.join(missing)}"
+            )

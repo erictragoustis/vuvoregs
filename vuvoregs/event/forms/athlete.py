@@ -1,13 +1,13 @@
-"""This module contains forms for managing athlete data during registration.
+"""Forms for managing athlete data during race registration.
 
-It includes:
-- AthleteForm: A form for capturing individual athlete details.
-- MinParticipantsFormSet: A formset enforcing minimum participant count.
-- athlete_formset_factory: A factory for generating AthleteFormSet
-tied to a Registration.
+Includes:
+- AthleteForm: Captures individual athlete info and dynamic option logic
+- MinParticipantsFormSet: Enforces race-level participant thresholds
+- athlete_formset_factory: Produces an inline formset for Registration
 """
 
 from django import forms
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.forms import BaseInlineFormSet, inlineformset_factory
 
@@ -18,15 +18,19 @@ from event.models.registration import Registration
 
 
 class AthleteForm(forms.ModelForm):
-    """Form for capturing individual athlete data during race registration."""
+    """Form for capturing a single athlete's data during registration.
+
+    Supports dynamic race packages, special prices, and pickup point selection.
+    """
 
     class Meta:
-        """Metadata for AthleteForm, defining model, fields, and widgets."""
+        """Meta class to define model and form field configurations."""
 
         model = Athlete
         fields = [
             "first_name",
             "last_name",
+            "fathers_name",
             "team",
             "email",
             "phone",
@@ -37,22 +41,21 @@ class AthleteForm(forms.ModelForm):
             "package",
             "special_price",
         ]
-
         widgets = {
             "dob": forms.DateInput(
-                format="%Y-%m-%d", attrs={"type": "date", "class": "form-control"}
-            )
+                format="%Y-%m-%d",
+                attrs={"type": "date", "class": "form-control"},
+            ),
         }
 
     def __init__(self, *args, **kwargs):
-        """Initialize the AthleteForm with optional race and packages context.
+        """Initialize the form with dynamic context from the registration view.
 
-        Parameters
-        ----------
-        *args : tuple
-            Positional arguments for the form.
-        **kwargs : dict
-            Keyword arguments for the form, including 'race' and 'packages'.
+        Args:
+            *args: Positional arguments passed to the parent class.
+            **kwargs: Keyword arguments, including:
+                race (Race): The race the athlete is registering for.
+                packages (QuerySet): Available packages for the race.
         """
         race = kwargs.pop("race", None)
         packages = kwargs.pop("packages", None)
@@ -61,6 +64,7 @@ class AthleteForm(forms.ModelForm):
         self.request = None
         self.form_index = None
         self.race = race
+
         if race:
             self.fields["special_price"] = forms.ModelChoiceField(
                 queryset=RaceSpecialPrice.objects.filter(race=race),
@@ -69,31 +73,33 @@ class AthleteForm(forms.ModelForm):
                 widget=forms.RadioSelect,
             )
 
-        # 🔁 Limit package options
+        # Filter packages specific to the current race
         if packages is not None:
             self.fields["package"].queryset = packages
+
         self.fields["package"].required = True
         self.fields["package"].error_messages = {"required": "Please select a package."}
 
-        # 🎯 Limit pickup points to event
-        if race:
-            self.fields["pickup_point"].queryset = race.event.pickup_points.all()
-        else:
-            self.fields["pickup_point"].queryset = PickUpPoint.objects.none()
+        # Filter pickup points to those available for the current event
+        self.fields["pickup_point"].queryset = (
+            race.event.pickup_points.all() if race else PickUpPoint.objects.none()
+        )
 
     def clean(self):
-        """Validate form data, enforce T&Cs, extract selected options and special prices."""  # noqa: E501
+        """Enrich the cleaned_data with selected package options from the POST data.
+
+        Also validates that a package is selected and extracts dynamic options.
+        """
         cleaned_data = super().clean()
 
         if not cleaned_data.get("package"):
             self.add_error("package", "You must select a package.")
 
-        # 🧠 Extract selected package options from request POST
         if self.request and self.form_index is not None:
             prefix = "athlete"
             index = self.form_index
-
             selected_options = {}
+
             for key in self.request.POST:
                 if key.startswith(f"{prefix}-{index}-option-") and not key.endswith(
                     "-name"
@@ -104,42 +110,28 @@ class AthleteForm(forms.ModelForm):
                         option_name_key, f"Option {option_id}"
                     )
                     values = self.request.POST.getlist(key)
+
                     if values and any(v.strip() for v in values):
                         selected_options[option_name] = values
-            self.instance.selected_options = (
-                selected_options if selected_options else {}
-            )
-        print("🧼 CLEANED:", cleaned_data)
-        print("🧾 ERRORS:", self.errors)
+
+            self.instance.selected_options = selected_options or {}
+
+        if settings.DEBUG:
+            print("🧼 CLEANED:", cleaned_data)
+            print("🧾 ERRORS:", self.errors)
+
         return cleaned_data
 
 
 class MinParticipantsFormSet(BaseInlineFormSet):
-    """Formset enforcing minimum participant count on a race."""
+    """Custom formset that enforces a race's minimum number of participants."""
 
     def __init__(self, *args, **kwargs):
-        """Initialize the formset with race context.
-
-        Parameters
-        ----------
-        *args : tuple
-            Positional arguments for the formset.
-        **kwargs : dict
-            Keyword arguments for the formset, including 'race'.
-        """
         self.race = kwargs.pop("race", None)
         super().__init__(*args, **kwargs)
 
     def add_fields(self, form, index):
-        """Add additional fields to the form in the formset.
-
-        Parameters
-        ----------
-        form : forms.Form
-            The form to which additional fields are added.
-        index : int
-            The index of the form in the formset.
-        """
+        """Inject race/request context and enforce completeness of each subform."""
         super().add_fields(form, index)
         form.empty_permitted = False
         form.request = getattr(self, "request", None)
@@ -147,8 +139,9 @@ class MinParticipantsFormSet(BaseInlineFormSet):
         form.race = self.race
 
     def clean(self):
-        """Ensure the minimum number of participants is met."""
+        """Raise a validation error if fewer forms than required are submitted."""
         super().clean()
+
         if self.race and self.race.min_participants:
             filled_forms = sum(
                 1
@@ -157,17 +150,19 @@ class MinParticipantsFormSet(BaseInlineFormSet):
             )
             if filled_forms < self.race.min_participants:
                 raise ValidationError(
-                    f"This race requires at least {self.race.min_participants} participants."  # noqa: E501
+                    f"This race requires at least "
+                    f"{self.race.min_participants} participants."
                 )
 
 
 def athlete_formset_factory(race):
-    """Factory for generating an AthleteFormSet tied to a Registration.
+    """Generate a formset for entering athletes tied to a given race/registration.
 
-    Adds race context and sets form count based on race's min_participants.
+    The formset includes validation for minimum participant counts.
     """
     extra_forms = race.min_participants if race and race.min_participants else 1
-    AthleteFormSet = inlineformset_factory(
+
+    return inlineformset_factory(
         parent_model=Registration,
         model=Athlete,
         form=AthleteForm,
@@ -175,4 +170,3 @@ def athlete_formset_factory(race):
         extra=extra_forms,
         can_delete=False,
     )
-    return AthleteFormSet

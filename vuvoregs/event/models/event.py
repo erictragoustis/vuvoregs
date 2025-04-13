@@ -1,7 +1,9 @@
 """Models for the event application.
 
-Defines models for events
+Defines models for events and their related entities.
 """
+
+from collections import defaultdict
 
 from django.conf import settings
 from django.db import models
@@ -16,7 +18,7 @@ class EventManager(models.Manager):
     """Custom manager for the Event model."""
 
     def available(self):
-        """Return events that are available for registration."""
+        """Return events that are currently open for registration and not full."""
         return (
             self.get_queryset()
             .annotate(
@@ -40,7 +42,7 @@ class EventManager(models.Manager):
 
 
 class Event(models.Model):
-    """Represent an event that users can register for."""
+    """An event that participants can register for."""
 
     name = models.CharField(max_length=255)
     date = models.DateField()
@@ -53,6 +55,11 @@ class Event(models.Model):
         blank=True,
         on_delete=models.CASCADE,
         related_name="events",
+    )
+    email = models.EmailField(
+        max_length=255,
+        blank=True,
+        help_text="Email address for event-related inquiries.",
     )
     max_participants = models.PositiveIntegerField(null=True, blank=True)
     registration_start_date = models.DateTimeField(null=True, blank=True)
@@ -67,7 +74,7 @@ class Event(models.Model):
 
     @cached_property
     def paid_athletes(self):
-        """Return a queryset of athletes who have paid for this event."""
+        """Return all athletes who have fully paid their registration for this event."""
         return Athlete.objects.filter(
             registration__event=self,
             registration__payment_status="paid",
@@ -75,30 +82,46 @@ class Event(models.Model):
 
     @property
     def paid_athlete_count(self):
-        """Return the count of paid athletes for this event."""
+        """Return the number of athletes with paid registrations."""
         return self.paid_athletes.count()
 
+    @property
+    def available_slots_remaining(self):
+        """Return the number of registration slots still available.
+
+        Returns None if unlimited.
+        """
+        if self.max_participants is None:
+            return None
+        return max(self.max_participants - self.paid_athlete_count, 0)
+
     def is_registration_open(self):
-        """Check if the registration for this event is currently open."""
-        if not self.is_available or self.date < now().date():
+        """Return True if the event is open for registration."""
+        now_ = now()
+        if not self.is_available or self.date < now_.date():
             return False
-        if self.registration_start_date and self.registration_start_date > now():
+        if self.registration_start_date and self.registration_start_date > now_:
             return False
-        if self.registration_end_date and self.registration_end_date < now():
+        if self.registration_end_date and self.registration_end_date < now_:
             return False
+        if (
+            self.max_participants is not None
+            and self.paid_athlete_count >= self.max_participants
+        ):
+            return False
+        return True
 
-        current_athletes = (
-            self.registrations.aggregate(count=Count("athletes", distinct=True))[
-                "count"
-            ]
-            or 0
-        )
-
-        return self.max_participants is None or current_athletes < self.max_participants
+    def get_paid_athletes_by_pickup_point(self):
+        """Returns a dictionary of pickup_point → list of paid athletes."""
+        result = defaultdict(list)
+        for athlete in self.paid_athletes.select_related("pickup_point"):
+            if athlete.pickup_point:
+                result[athlete.pickup_point].append(athlete)
+        return result
 
 
 class PickUpPoint(models.Model):
-    """Represent a pickup point for an event."""
+    """A location where race packages can be picked up for an event."""
 
     event = models.ForeignKey(
         Event,

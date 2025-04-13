@@ -1,7 +1,9 @@
 """URL configuration for the registration module.
 
-This module defines URL patterns for handling registration-related views,
-including registration, confirmation, and payment creation.
+Includes routes for:
+- Multi-athlete race registration
+- T&Cs confirmation step
+- Payment creation endpoint
 """
 
 from django.urls import path
@@ -13,7 +15,11 @@ from event.views import (
 )
 
 urlpatterns = [
-    path("race/<int:race_id>/register/", registration, name="registration"),
+    path(
+        "race/<int:race_id>/register/",
+        registration,
+        name="registration",
+    ),
     path(
         "registration/confirm/<int:registration_id>/",
         confirm_registration,
