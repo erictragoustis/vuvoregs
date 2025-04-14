@@ -13,7 +13,6 @@ from django import forms
 from django.contrib import admin
 from django.http import HttpResponse
 from django_json_widget.widgets import JSONEditorWidget
-from modeltranslation.admin import TranslationAdmin
 from modeltranslation.translator import TranslationOptions, register
 
 from event.models.athlete import Athlete
