@@ -9,7 +9,13 @@ Includes:
 from django import forms
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.forms import BaseInlineFormSet, inlineformset_factory
+from django.forms import (
+    BaseInlineFormSet,
+    ModelChoiceField,
+    RadioSelect,
+    inlineformset_factory,
+)
+from django.utils.translation import gettext_lazy as _
 
 from event.models.athlete import Athlete
 from event.models.event import PickUpPoint
@@ -47,6 +53,20 @@ class AthleteForm(forms.ModelForm):
                 attrs={"type": "date", "class": "form-control"},
             ),
         }
+        labels = {
+            "first_name": _("First Name"),
+            "last_name": _("Last Name"),
+            "fathers_name": _("Father's Name"),
+            "team": _("Team"),
+            "email": _("Email"),
+            "phone": _("Phone"),
+            "sex": _("Sex"),
+            "dob": _("Date of Birth"),
+            "pickup_point": _("Pickup Point"),
+            "hometown": _("Hometown"),
+            "package": _("Package"),
+            "special_price": _("Special Price"),
+        }
 
     def __init__(self, *args, **kwargs):
         """Initialize the form with dynamic context from the registration view.
@@ -66,11 +86,15 @@ class AthleteForm(forms.ModelForm):
         self.race = race
 
         if race:
-            self.fields["special_price"] = forms.ModelChoiceField(
-                queryset=RaceSpecialPrice.objects.filter(race=race),
+            special_prices = RaceSpecialPrice.objects.filter(race=race)
+            self.fields["special_price"] = ModelChoiceField(
+                queryset=special_prices,
                 required=False,
-                label="Special Price (if applicable)",
-                widget=forms.RadioSelect,
+                label=_("Special Price (optional)"),
+                widget=RadioSelect,
+            )
+            self.fields["special_price"].choices = [("", _("No discount"))] + list(
+                self.fields["special_price"].choices
             )
 
         # Filter packages specific to the current race
@@ -78,7 +102,9 @@ class AthleteForm(forms.ModelForm):
             self.fields["package"].queryset = packages
 
         self.fields["package"].required = True
-        self.fields["package"].error_messages = {"required": "Please select a package."}
+        self.fields["package"].error_messages = {
+            "required": _("Please select a package.")
+        }
 
         # Filter pickup points to those available for the current event
         self.fields["pickup_point"].queryset = (
@@ -93,7 +119,7 @@ class AthleteForm(forms.ModelForm):
         cleaned_data = super().clean()
 
         if not cleaned_data.get("package"):
-            self.add_error("package", "You must select a package.")
+            self.add_error("package", _("You must select a package."))
 
         if self.request and self.form_index is not None:
             prefix = "athlete"
@@ -150,8 +176,8 @@ class MinParticipantsFormSet(BaseInlineFormSet):
             )
             if filled_forms < self.race.min_participants:
                 raise ValidationError(
-                    f"This race requires at least "
-                    f"{self.race.min_participants} participants."
+                    _("This race requires at least %(min)d participants.")
+                    % {"min": self.race.min_participants}
                 )
 
 

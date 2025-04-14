@@ -10,6 +10,7 @@ from django.db import models
 from django.db.models import Count, F, Q
 from django.utils.functional import cached_property
 from django.utils.timezone import now
+from django.utils.translation import gettext_lazy as _
 
 from .athlete import Athlete
 
@@ -44,11 +45,13 @@ class EventManager(models.Manager):
 class Event(models.Model):
     """An event that participants can register for."""
 
-    name = models.CharField(max_length=255)
-    date = models.DateField()
-    image = models.ImageField(upload_to="images/event_images/", blank=True, null=True)
-    location = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
+    name = models.CharField(_("Name"), max_length=255)
+    date = models.DateField(_("Date"))
+    image = models.ImageField(
+        _("Image"), upload_to="images/event_images/", blank=True, null=True
+    )
+    location = models.CharField(_("Location"), max_length=255)
+    description = models.TextField(_("Description"), blank=True)
     organizer = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -61,10 +64,16 @@ class Event(models.Model):
         blank=True,
         help_text="Email address for event-related inquiries.",
     )
-    max_participants = models.PositiveIntegerField(null=True, blank=True)
-    registration_start_date = models.DateTimeField(null=True, blank=True)
-    registration_end_date = models.DateTimeField(null=True, blank=True)
-    is_available = models.BooleanField(default=True)
+    max_participants = models.PositiveIntegerField(
+        _("Max Participants"), null=True, blank=True
+    )
+    registration_start_date = models.DateTimeField(
+        _("Registration Start Date"), null=True, blank=True
+    )
+    registration_end_date = models.DateTimeField(
+        _("Registration End Date"), null=True, blank=True
+    )
+    is_available = models.BooleanField(_("Is Available"), default=True)
 
     objects = EventManager()
 
@@ -128,9 +137,11 @@ class PickUpPoint(models.Model):
         on_delete=models.CASCADE,
         related_name="pickup_points",
     )
-    name = models.CharField(max_length=255)
-    address = models.TextField()
-    working_hours = models.CharField(max_length=255, help_text="e.g. Mon–Fri 9am–5pm")
+    name = models.CharField(_("Name"), max_length=255)
+    address = models.TextField(_("Address"))
+    working_hours = models.CharField(
+        _("Working Hours"), max_length=255, help_text="e.g. Mon–Fri 9am–5pm"
+    )
 
     def __str__(self):
         """Return a string representation of the pickup point."""

@@ -7,6 +7,7 @@ import json
 
 from django.db import models
 from django.urls import reverse
+from django.utils.translation import gettext_lazy as _
 
 from payments.models import BasePayment
 
@@ -21,7 +22,8 @@ class Payment(BasePayment):
         max_length=50,
         blank=True,
         default="",
-        help_text="Optional external order reference or code.",
+        help_text=_("Optional external order reference or code."),
+        verbose_name=_("Order Code"),
     )
 
     def get_registration_id(self) -> int | None:

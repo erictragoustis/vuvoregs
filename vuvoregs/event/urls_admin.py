@@ -7,7 +7,7 @@ through the admin interface.
 
 from django.urls import path
 
-from .admin import export_athletes_view, import_bibs_view
+from event.admin.admin_views import export_athletes_view, import_bibs_view
 
 app_name = "event_admin"
 

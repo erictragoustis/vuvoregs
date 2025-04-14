@@ -1,14 +1,16 @@
 """URL configuration for the vuvoregs project.
 
-This module defines the URL patterns for the project, 
+This module defines the URL patterns for the project,
 including routes for the admin interface,
 dashboard, tools, events, and user authentication.
 """
 
 from django.conf import settings
+from django.conf.urls.i18n import i18n_patterns
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
+from django.utils.translation import gettext_lazy as _
 
 """
 URL configuration for vuvoregs project.
@@ -28,14 +30,16 @@ Including another URLconf
 """
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('dashboard/', include('dashboard.urls', namespace='dashboard')),
-    path('tools/', include('event.urls_admin', namespace='event_admin')),
-    path('', include('event.urls')), 
-    path('accounts/', include('allauth.urls')),
+    path("i18n/", include("django.conf.urls.i18n")),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(
-    settings.MEDIA_URL, document_root=settings.MEDIA_ROOT
+urlpatterns += i18n_patterns(
+    path("admin/", admin.site.urls),
+    path("dashboard/", include("dashboard.urls", namespace="dashboard")),
+    path("tools/", include("event.urls_admin", namespace="event_admin")),
+    path("", include("event.urls")),
+    path("accounts/", include("allauth.urls")),
 )
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

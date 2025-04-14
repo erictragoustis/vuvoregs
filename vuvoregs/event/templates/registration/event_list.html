@@ -2,6 +2,7 @@
 {% load static %}
 {% block title %}Available Events{% endblock %}
 {% block css %}
+    {% load i18n %}
     <!-- Font Awesome (Free CDN) -->
     <link rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
@@ -21,7 +22,7 @@
     </style>
 {% endblock %}
 {% block content %}
-    <h1 class="mb-4">Upcoming Events</h1>
+    <h1 class="mb-4">{% trans "Upcoming Events" %}</h1>
     {% if events %}
         <div class="row">
             {% for event in events %}
@@ -51,7 +52,7 @@
                                         type="button"
                                         data-bs-toggle="collapse"
                                         data-bs-target="#event-details-{{ event.id }}">
-                                    <i class="fa-solid fa-chevron-down me-1"></i> Show Details
+                                    <i class="fa-solid fa-chevron-down me-1"></i> {% trans "Show Details" %}
                                 </button>
                                 <!-- Collapsible content -->
                                 <div class="collapse d-md-block" id="event-details-{{ event.id }}">
@@ -84,7 +85,7 @@
                                 </div>
                                 <!-- Call to action -->
                                 <a href="{% url 'race_list' event.id %}"
-                                   class="btn btn-outline-primary mt-auto">View Races</a>
+                                   class="btn btn-outline-primary mt-auto">{% trans "View Races" %}</a>
                             </div>
                         </div>
                     </div>
@@ -92,7 +93,7 @@
             {% endfor %}
         </div>
     {% else %}
-        <div class="alert alert-info">No upcoming events at the moment.</div>
+        <div class="alert alert-info">{% trans "No upcoming events at the moment." %}</div>
     {% endif %}
 {% endblock %}
 {% block js_footer %}

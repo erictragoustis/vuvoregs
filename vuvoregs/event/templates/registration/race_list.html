@@ -1,9 +1,12 @@
 {% extends 'base.html' %}
-{% block title %}Select a Race{% endblock %}
+{% load i18n %}
+{% block title %}
+    {% trans "Select a Race" %}
+{% endblock %}
 {% block content %}
     <div class="container my-5">
         <h2 class="mb-4">
-            Choose Your Race for <strong>{{ event.name }}</strong>
+            {% blocktrans %}Choose Your Race for{% endblocktrans %}  <strong>{{ event.name }}</strong>
         </h2>
         <!-- ✅ Collapsible Race & Package Table -->
         <div class="mb-5">
@@ -12,19 +15,19 @@
                href="#priceTable"
                role="button"
                aria-expanded="false"
-               aria-controls="priceTable">💶 See All Prices and Team Discounts</a>
+               aria-controls="priceTable">💶 {% trans "See All Prices and Team Discounts" %}</a>
             <div class="collapse" id="priceTable">
                 <div class="card card-body border">
-                    <h5 class="mb-3">Races & Available Packages</h5>
+                    <h5 class="mb-3">{% trans "Races & Available Packages" %}</h5>
                     <div class="table-responsive">
                         <table class="table table-bordered align-middle">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Package</th>
-                                    <th>Final Price (Individual)</th>
-                                    <th>Team Price</th>
-                                    <th>Special Prices</th>
-                                    <th>Description</th>
+                                    <th>{% trans "Package" %}</th>
+                                    <th>{% trans "Final Price (Individual)" %}</th>
+                                    <th>{% trans "Team Price" %}</th>
+                                    <th>{% trans "Special Prices" %}</th>
+                                    <th>{% trans "Description" %}</th>
                                 </tr>
                             </thead>
                             <tbody>

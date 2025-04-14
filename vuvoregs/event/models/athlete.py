@@ -10,6 +10,7 @@ import json
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 
 class Athlete(models.Model):
@@ -23,6 +24,7 @@ class Athlete(models.Model):
         "event.Registration",
         on_delete=models.CASCADE,
         related_name="athletes",
+        verbose_name=_("Registration"),
     )
 
     special_price = models.ForeignKey(
@@ -30,28 +32,32 @@ class Athlete(models.Model):
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        help_text="Race-level special price (discount).",
+        verbose_name=_("Special Price"),
+        help_text=_("Race-level special price (discount)."),
     )
 
-    first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100)
-    fathers_name = models.CharField(max_length=100, blank=True)
-    team = models.CharField(max_length=100, blank=True)
-    email = models.EmailField()
-    phone = models.CharField(max_length=20)
+    first_name = models.CharField(_("First Name"), max_length=100)
+    last_name = models.CharField(_("Last Name"), max_length=100)
+    fathers_name = models.CharField(_("Father's Name"), max_length=100, blank=True)
+    team = models.CharField(_("Team"), max_length=100, blank=True)
+    email = models.EmailField(_("Email"))
+    phone = models.CharField(_("Phone"), max_length=20)
 
     sex = models.CharField(
+        _("Sex"),
         max_length=10,
-        choices=[("Male", "Male"), ("Female", "Female")],
+        choices=[("Male", _("Male")), ("Female", _("Female"))],
     )
 
-    dob = models.DateField(blank=True, null=True)
-    hometown = models.CharField(max_length=100)
+    dob = models.DateField(_("Date of Birth"), blank=True, null=True)
+    hometown = models.CharField(_("Hometown"), max_length=100)
 
-    race = models.ForeignKey("Race", on_delete=models.CASCADE)
-    package = models.ForeignKey("RacePackage", on_delete=models.CASCADE)
+    race = models.ForeignKey("Race", on_delete=models.CASCADE, verbose_name=_("Race"))
+    package = models.ForeignKey(
+        "RacePackage", on_delete=models.CASCADE, verbose_name=_("Package")
+    )
 
-    bib_number = models.CharField(max_length=10, blank=True)
+    bib_number = models.CharField(_("Bib Number"), max_length=10, blank=True)
 
     pickup_point = models.ForeignKey(
         "event.PickUpPoint",
@@ -59,22 +65,28 @@ class Athlete(models.Model):
         null=True,
         blank=True,
         related_name="athletes",
+        verbose_name=_("Pickup Point"),
     )
 
-    registration_date = models.DateTimeField(auto_now_add=True)
+    registration_date = models.DateTimeField(
+        auto_now_add=True, verbose_name=_("Registration Date")
+    )
 
     selected_options = models.JSONField(
         null=True,
         blank=True,
-        help_text=(
+        help_text=_(
             "Package customization options selected by athlete (T-shirt size, etc)."
         ),
+        verbose_name=_("Selected Options"),
     )
 
     class Meta:
         """Metadata options for the Athlete model."""
 
         ordering = ["-registration__created_at"]
+        verbose_name = _("Athlete")
+        verbose_name_plural = _("Athletes")
 
     def __str__(self) -> str:
         """Return a string representation of the athlete."""

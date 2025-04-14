@@ -6,6 +6,7 @@ Defines models for registration records and payment tracking.
 from decimal import Decimal
 
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 
 class Registration(models.Model):
@@ -15,45 +16,55 @@ class Registration(models.Model):
     """
 
     STATUS_CHOICES = [
-        ("pending", "Pending"),
-        ("completed", "Completed"),
-        ("failed", "Failed"),
+        ("pending", _("Pending")),
+        ("completed", _("Completed")),
+        ("failed", _("Failed")),
     ]
 
     PAYMENT_CHOICES = [
-        ("not_paid", "Not Paid"),
-        ("paid", "Paid"),
-        ("failed", "Payment Failed"),
+        ("not_paid", _("Not Paid")),
+        ("paid", _("Paid")),
+        ("failed", _("Payment Failed")),
     ]
 
     event = models.ForeignKey(
         "event.Event",
         on_delete=models.CASCADE,
         related_name="registrations",
+        verbose_name=_("Event"),
     )
 
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("Created At"),
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_("Updated At"),
+    )
 
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
         default="pending",
-        help_text="Current processing status of the registration.",
+        help_text=_("Current processing status of the registration."),
+        verbose_name=_("Status"),
     )
 
     total_amount = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         default=Decimal("0.00"),
-        help_text="Total amount due for this registration.",
+        help_text=_("Total amount due for this registration."),
+        verbose_name=_("Total Amount"),
     )
 
     payment_status = models.CharField(
         max_length=20,
         choices=PAYMENT_CHOICES,
         default="not_paid",
-        help_text="Payment status (paid, not paid, failed).",
+        help_text=_("Payment status (paid, not paid, failed)."),
+        verbose_name=_("Payment Status"),
     )
 
     agreed_to_terms = models.ForeignKey(
@@ -61,12 +72,14 @@ class Registration(models.Model):
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        help_text="Specific terms document agreed to by the user.",
+        help_text=_("Specific terms document agreed to by the user."),
+        verbose_name=_("Agreed Terms Version"),
     )
 
     agrees_to_terms = models.BooleanField(
         default=False,
-        help_text="Indicates whether user actively agreed to the terms.",
+        help_text=_("Indicates whether user actively agreed to the terms."),
+        verbose_name=_("Agrees to Terms"),
     )
 
     payment = models.OneToOneField(
@@ -75,7 +88,8 @@ class Registration(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
         related_name="registration",
-        help_text="Optional link to payment object (Viva, Stripe, etc).",
+        help_text=_("Optional link to payment object (Viva, Stripe, etc)."),
+        verbose_name=_("Payment"),
     )
 
     def __str__(self) -> str:

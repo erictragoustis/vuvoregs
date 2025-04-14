@@ -9,6 +9,7 @@ from decimal import Decimal
 from django.db import models
 from django.db.models import Count, F, Q
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 
 class RaceManager(models.Manager):
@@ -35,41 +36,58 @@ class RaceManager(models.Manager):
 class Race(models.Model):
     """A race belonging to an event (e.g. 5K, 10K, Relay)."""
 
-    name = models.CharField(max_length=255, blank=True)
+    name = models.CharField(_("Name"), max_length=255, blank=True)
     event = models.ForeignKey(
-        "event.Event", related_name="races", on_delete=models.CASCADE
+        "event.Event",
+        related_name="races",
+        on_delete=models.CASCADE,
+        verbose_name=_("Event"),
     )
     image = models.ImageField(
-        upload_to="images/event_images/race_images", blank=True, null=True
+        upload_to="images/event_images/race_images",
+        blank=True,
+        null=True,
+        verbose_name=_("Image"),
     )
     race_type = models.ForeignKey(
-        "event.RaceType", related_name="races", on_delete=models.CASCADE
+        "event.RaceType",
+        related_name="races",
+        on_delete=models.CASCADE,
+        verbose_name=_("Race Type"),
     )
-    race_km = models.DecimalField(max_digits=5, decimal_places=2)
-    max_participants = models.PositiveIntegerField(null=True, blank=True)
-    min_participants = models.PositiveIntegerField(null=True, blank=True)
+    race_km = models.DecimalField(_("Distance (km)"), max_digits=5, decimal_places=2)
+    max_participants = models.PositiveIntegerField(
+        _("Max Participants"), null=True, blank=True
+    )
+    min_participants = models.PositiveIntegerField(
+        _("Min Participants"), null=True, blank=True
+    )
 
     base_price_individual = models.DecimalField(
+        _("Individual Base Price"),
         max_digits=10,
         decimal_places=2,
         default=Decimal("0.00"),
-        help_text="Base price for individual registrations.",
+        help_text=_("Base price for individual registrations."),
     )
     base_price_team = models.DecimalField(
+        _("Team Base Price"),
         max_digits=10,
         decimal_places=2,
         default=Decimal("0.00"),
-        help_text="Base price per athlete for team registrations.",
+        help_text=_("Base price per athlete for team registrations."),
     )
     team_discount_threshold = models.PositiveIntegerField(
+        _("Team Discount Threshold"),
         null=True,
         blank=True,
-        help_text="Minimum number of athletes for team pricing to apply.",
+        help_text=_("Minimum number of athletes for team pricing to apply."),
     )
 
     objects = RaceManager()
 
     def __str__(self):
+        """Return a string representation of the race."""
         return f"{self.name} - {self.race_type.name} - {self.race_km} KM ({self.event.name})"
 
     def is_open(self):
@@ -125,8 +143,8 @@ class Race(models.Model):
 class RaceType(models.Model):
     """Type/category of a race (e.g. Marathon, Relay, Sprint)."""
 
-    name = models.CharField(max_length=50)
-    description = models.TextField(blank=True)
+    name = models.CharField(_("Name"), max_length=50)
+    description = models.TextField(_("Description"), blank=True)
 
     def __str__(self):
         return self.name
@@ -136,21 +154,30 @@ class TimeBasedPrice(models.Model):
     """A time window with a pricing adjustment for a race."""
 
     race = models.ForeignKey(
-        "event.Race", on_delete=models.CASCADE, related_name="time_based_prices"
+        "event.Race",
+        on_delete=models.CASCADE,
+        related_name="time_based_prices",
+        verbose_name=_("Race"),
     )
-    label = models.CharField(max_length=255)
-    start_date = models.DateTimeField()
-    end_date = models.DateTimeField()
+    label = models.CharField(_("Label"), max_length=255)
+    start_date = models.DateTimeField(_("Start Date"))
+    end_date = models.DateTimeField(_("End Date"))
     price_adjustment = models.DecimalField(
+        _("Price Adjustment"),
         max_digits=10,
         decimal_places=2,
-        help_text="Adjustment to apply during this time window. Can be negative (discount) or positive (surcharge).",  # noqa: E501
+        help_text=_(
+            "Adjustment to apply during this time window. "
+            "Can be negative (discount) or positive (surcharge)."
+        ),
     )
 
     class Meta:
         """Metadata options for the TimeBasedPrice model."""
 
         ordering = ["start_date"]
+        verbose_name = _("Time-Based Price")
+        verbose_name_plural = _("Time-Based Prices")
 
     def __str__(self):
         """Return a string representation of the time-based price."""

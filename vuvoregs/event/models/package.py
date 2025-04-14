@@ -7,6 +7,7 @@ from decimal import Decimal
 
 from django.db import models
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 # from event.models import Event, Race
 
@@ -15,22 +16,33 @@ class RacePackage(models.Model):
     """Represent a package of races offered for an event."""
 
     event = models.ForeignKey(
-        "event.Event", on_delete=models.CASCADE, related_name="packages"
+        "event.Event",
+        on_delete=models.CASCADE,
+        related_name="packages",
+        verbose_name=_("Event"),
     )
-    name = models.CharField(max_length=255)
-    description = models.TextField()
+    name = models.CharField(_("Name"), max_length=255)
+    description = models.TextField(_("Description"))
     price_adjustment = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         default=0.00,
-        help_text="Adjustment applied to race base price",
+        help_text=_("Adjustment applied to race base price"),
+        verbose_name=_("Price Adjustment"),
     )
     visible_until = models.DateTimeField(
         null=True,
         blank=True,
-        help_text="Package will be hidden after this datetime. Leave blank to always show.",  # noqa: E501
+        help_text=_(
+            "Package will be hidden after this datetime. Leave blank to always show."
+        ),
+        verbose_name=_("Visible Until"),
     )
-    races = models.ManyToManyField("event.Race", related_name="packages")
+    races = models.ManyToManyField(
+        "event.Race",
+        related_name="packages",
+        verbose_name=_("Races"),
+    )
 
     class Meta:
         """Meta information for the RacePackage model."""
@@ -123,10 +135,18 @@ class RacePackage(models.Model):
 class PackageOption(models.Model):
     """Represent additional options for a race package."""
 
-    package = models.ForeignKey(RacePackage, on_delete=models.CASCADE)
-    name = models.CharField(max_length=255)
-    options_json = models.JSONField(default=list, blank=True)
-    options_string = models.CharField(max_length=500, blank=True)
+    package = models.ForeignKey(
+        RacePackage,
+        on_delete=models.CASCADE,
+        verbose_name=_("Package"),
+    )
+    name = models.CharField(_("Option Name"), max_length=255)
+    options_json = models.JSONField(
+        default=list, blank=True, verbose_name=_("Options (JSON)")
+    )
+    options_string = models.CharField(
+        max_length=500, blank=True, verbose_name=_("Options String")
+    )
 
     def __str__(self):
         """Return a string representation of the package option."""
@@ -149,22 +169,33 @@ class RaceSpecialPrice(models.Model):
     """Represent special pricing for a race."""
 
     race = models.ForeignKey(
-        "Race", on_delete=models.CASCADE, related_name="special_prices"
+        "Race",
+        on_delete=models.CASCADE,
+        related_name="special_prices",
+        verbose_name=_("Race"),
     )
     name = models.CharField(
         max_length=255,
-        help_text="Name of the special price, e.g., 'Early Bird Discount'",
+        help_text=_("Name of the special price, e.g., 'Domestic Citizen'"),
+        verbose_name=_("Internal Name"),
     )
-    label = models.CharField(max_length=255)
+    label = models.CharField(_("Display Label"), max_length=255)
     description = models.TextField(
         blank=True,
-        help_text="Description of the special price, if applicable.",
+        help_text=_("Description of the special price, if applicable."),
+        verbose_name=_("Description"),
     )
-
     discount_amount = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        help_text="Discount subtracted from base race price",
+        help_text=_("Discount subtracted from base race price"),
+        verbose_name=_("Discount Amount"),
+    )
+    document = models.FileField(
+        upload_to="special_price_docs/",
+        blank=True,
+        null=True,
+        help_text=_("Optional declaration form athletes must show."),
     )
 
     def __str__(self):

@@ -7,6 +7,7 @@ Includes:
 """
 
 from django import forms
+from django.utils.translation import gettext_lazy as _
 
 from event.models.event import Event
 
@@ -19,8 +20,8 @@ class BibNumberImportForm(forms.Form):
     """
 
     csv_file = forms.FileField(
-        label="CSV File",
-        help_text="Upload a CSV file with two columns: id;bib_number",
+        label=_("CSV File"),
+        help_text=_("Upload a CSV file with two columns: id;bib_number"),
         required=True,
     )
 
@@ -34,7 +35,7 @@ class ExportEventAthletesForm(forms.Form):
     event = forms.ModelChoiceField(
         queryset=Event.objects.all(),
         required=True,
-        label="Select Event",
+        label=_("Select Event"),
     )
 
 
@@ -47,8 +48,8 @@ class TeamExcelUploadForm(forms.Form):
     """
 
     excel_file = forms.FileField(
-        label="Upload Excel File (.xlsx)",
-        help_text=(
+        label=_("Upload Excel File (.xlsx)"),
+        help_text=_(
             "Use the provided template. "
             "Ensure that race_name and package_name match exactly."
         ),
