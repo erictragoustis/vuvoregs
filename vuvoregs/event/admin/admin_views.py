@@ -1,3 +1,9 @@
+"""This module contains admin views for handling athlete data.
+
+It includes functionalities for importing bib numbers and exporting athlete data
+for specific events in CSV format.
+"""
+
 import csv
 from io import TextIOWrapper
 
@@ -8,12 +14,23 @@ from django.shortcuts import redirect, render
 from event.forms import (
     BibNumberImportForm,
     ExportEventAthletesForm,
-    TeamExcelUploadForm,
 )
-from event.models import Athlete, Registration
+from event.models import Athlete
 
 
 def import_bibs_view(request):
+    """Handle the import of bib numbers for athletes.
+
+    Parameters
+    ----------
+    request : HttpRequest
+        The HTTP request object containing form data and uploaded files.
+
+    Returns,
+    -------
+    HttpResponse
+        A rendered HTML form or a redirect to the admin index after processing.
+    """
     form = BibNumberImportForm()
     success, failed = 0, 0
     if request.method == "POST":
@@ -45,6 +62,18 @@ def import_bibs_view(request):
 
 
 def export_athletes_view(request):
+    """Handle the export of athletes for a specific event.
+
+    Parameters
+    ----------
+    request : HttpRequest
+        The HTTP request object containing form data.
+
+    Returns,
+    -------
+    HttpResponse
+        A CSV file response containing athlete data or a rendered HTML form.
+    """
     form = ExportEventAthletesForm()
     if request.method == "POST":
         form = ExportEventAthletesForm(request.POST)

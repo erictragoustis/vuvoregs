@@ -1,3 +1,10 @@
+"""Admin actions and configurations for managing Payment objects.
+
+This module provides:
+- Admin actions to simulate payment success, failure, and webhook events.
+- PaymentAdmin class for customizing the Django admin interface for Payment objects.
+"""
+
 import json
 
 from django.conf import settings
@@ -12,6 +19,17 @@ from event.views import payment_webhook
 
 @admin.action(description="Set payment status to 'confirmed'")
 def simulate_success(modeladmin, request, queryset):
+    """Set the status of selected payments to 'confirmed' and update related registrations.
+
+    Parameters
+    ----------
+    modeladmin : ModelAdmin
+        The admin interface for the model.
+    request : HttpRequest
+        The HTTP request object.
+    queryset : QuerySet
+        The selected Payment objects to update.
+    """
     for payment in queryset:
         payment.status = "confirmed"
         payment.save()
@@ -24,6 +42,17 @@ def simulate_success(modeladmin, request, queryset):
 
 @admin.action(description="Set payment status to 'failed'")
 def simulate_failure(modeladmin, request, queryset):
+    """Set the status of selected payments to 'rejected' and update related registrations.
+
+    Parameters
+    ----------
+    modeladmin : ModelAdmin
+        The admin interface for the model.
+    request : HttpRequest
+        The HTTP request object.
+    queryset : QuerySet
+        The selected Payment objects to update.
+    """
     for payment in queryset:
         payment.status = "rejected"
         payment.save()
@@ -36,6 +65,17 @@ def simulate_failure(modeladmin, request, queryset):
 
 @admin.action(description="🚀 Simulate Webhook for selected payments")
 def simulate_webhook(modeladmin, request, queryset):
+    """Simulate a webhook event for the selected payments.
+
+    Parameters
+    ----------
+    modeladmin : ModelAdmin
+        The admin interface for the model.
+    request : HttpRequest
+        The HTTP request object.
+    queryset : QuerySet
+        The selected Payment objects to simulate the webhook for.
+    """
     if not settings.DEBUG:
         messages.error(request, "❌ This action is only available in development mode.")
         return
@@ -55,6 +95,12 @@ def simulate_webhook(modeladmin, request, queryset):
 
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
+    """Admin interface for managing Payment objects.
+
+    This class customizes the Django admin interface for Payment objects,
+    providing list display, filters, search fields, and custom actions.
+    """
+
     list_display = (
         "id",
         "variant",
