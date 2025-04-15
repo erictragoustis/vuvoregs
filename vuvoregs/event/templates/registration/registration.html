@@ -104,19 +104,20 @@
                         <div class="d-none">{{ form.package|as_crispy_field }}</div>
                         <label class="form-label mt-3">Select a Package</label>
                         <div class="row gx-2 gy-2 package-card-group">
-                            {% for pkg in form.sorted_packages %}
-                                <div class="col-md-6">
-                                    <div class="package-card {% if form.package.value == pkg.id|stringformat:'s' %}selected{% endif %}"
-                                         data-package-id="{{ pkg.id }}">
-                                        <h6 class="fw-bold">{{ pkg.name }}</h6>
-                                        <p class="mb-1 small">{{ pkg.description|default:"No description" }}</p>
-                                        <p class="mb-0 fw-bold text-primary">Price: €{{ pkg.final_price_display|floatformat:2 }}</p>
-                                        {% if pkg.team_price_display %}
-                                            <p class="mb-0 text-muted small">Team Price: €{{ pkg.team_price_display|floatformat:2 }}</p>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            {% endfor %}
+                            {% with race.get_packages_with_prices as sorted_packages %}
+                                {% for data in sorted_packages %}
+                                    {% with pkg=data.package %}
+                                        <div class="col-md-6">
+                                            <div class="package-card {% if form.package.value == pkg.id|stringformat:'s' %}selected{% endif %}"
+                                                 data-package-id="{{ pkg.id }}">
+                                                <h6 class="fw-bold">{{ pkg.name }}</h6>
+                                                <p class="mb-1 small">{{ pkg.description|default:"No description" }}</p>
+                                                <p class="mb-0 fw-bold text-primary">Price: €{{ data.individual_price|floatformat:2 }}</p>
+                                            </div>
+                                        </div>
+                                    {% endwith %}
+                                {% endfor %}
+                            {% endwith %}
                         </div>
                         <div class="package-options-container mt-3"></div>
                     </div>

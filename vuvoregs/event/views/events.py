@@ -32,13 +32,8 @@ def race_list(request, event_id):
 
     races = (
         Race.objects.filter(event=event)
-        .select_related("race_type")  # useful for __str__ and display
-        .prefetch_related(
-            "packages",  # show available packages for this race
-            "packages__races",  # used by pricing methods on the package
-            "packages__packageoption_set",  # options like T-shirt size
-            "time_based_prices",  # time-based pricing
-        )
+        .select_related("race_type")
+        .prefetch_related("packages", "special_prices")
     )
 
     return render(

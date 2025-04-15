@@ -6,9 +6,9 @@
 {% block content %}
     <div class="container my-5">
         <h2 class="mb-4">
-            {% blocktrans %}Choose Your Race for{% endblocktrans %}  <strong>{{ event.name }}</strong>
+            {% blocktrans %}Choose Your Race for{% endblocktrans %} <strong>{{ event.name }}</strong>
         </h2>
-        <!-- ✅ Collapsible Race & Package Table -->
+        <!-- 💶 Toggle Table -->
         <div class="mb-5">
             <a class="btn btn-outline-secondary mb-3"
                data-bs-toggle="collapse"
@@ -35,27 +35,27 @@
                                     <tr class="table-secondary fw-bold border-top border-3">
                                         <td colspan="5">{{ race.name }} — {{ race.race_km }} km ({{ race.race_type.name }})</td>
                                     </tr>
-                                    {% for package in race.packages.all %}
-                                        {% if package.is_visible_now %}
+                                    {% for data in race.get_packages_with_prices %}
+                                        {% if data.package.is_visible_now %}
                                             <tr>
-                                                <td class="fw-medium">{{ package.name }}</td>
-                                                <td class="fw-bold text-primary">€{{ package.get_final_price|floatformat:2 }}</td>
+                                                <td class="fw-medium">{{ data.package.name }}</td>
+                                                <td class="fw-bold text-primary">€{{ data.individual_price|floatformat:2 }}</td>
                                                 <td>
-                                                    {% if race.has_team_discount %}
-                                                        €{{ package.team_final_price|floatformat:2 }}
+                                                    {% if data.team_price %}
+                                                        €{{ data.team_price|floatformat:2 }}
                                                         <small class="text-muted">({{ race.team_discount_threshold }}+)</small>
                                                     {% else %}
                                                         <em>—</em>
                                                     {% endif %}
                                                 </td>
                                                 <td>
-                                                    {% for sp in race.special_prices.all %}
+                                                    {% for sp in data.special_prices %}
                                                         <div>{{ sp.label }} (−€{{ sp.discount_amount|floatformat:2 }})</div>
                                                     {% empty %}
                                                         <em>—</em>
                                                     {% endfor %}
                                                 </td>
-                                                <td>{{ package.description|default:"—" }}</td>
+                                                <td>{{ data.package.description|default:"—" }}</td>
                                             </tr>
                                         {% endif %}
                                     {% endfor %}
@@ -66,7 +66,7 @@
                 </div>
             </div>
         </div>
-        <!-- ✅ Race Cards -->
+        <!-- 🏁 Race Cards -->
         {% if races %}
             <div class="row g-4">
                 {% for race in races %}
@@ -97,12 +97,12 @@
                                     <i class="fa-solid fa-person-running me-1 text-secondary"></i>
                                     {{ race.race_type.name }} • {{ race.race_km }} km
                                 </p>
-                                {% with race.packages.all|dictsort:"price_adjustment" as sorted_packages %}
-                                    {% for package in sorted_packages %}
-                                        {% if package.is_visible_now and forloop.first %}
+                                {% with race.get_packages_with_prices as sorted_packages %}
+                                    {% for data in sorted_packages %}
+                                        {% if data.package.is_visible_now and forloop.first %}
                                             <p class="fw-bold text-dark small mb-3">
                                                 <i class="fa-solid fa-tag me-1 text-muted"></i>
-                                                From <span class="text-primary">€{{ package.final_price|floatformat:2 }}</span>
+                                                From <span class="text-primary">€{{ data.individual_price|floatformat:2 }}</span>
                                             </p>
                                         {% endif %}
                                     {% endfor %}
@@ -117,15 +117,15 @@
                 {% endfor %}
             </div>
         {% else %}
-            <div class="alert alert-warning">No races are currently available for this event.</div>
+            <div class="alert alert-warning">{% trans "No races are currently available for this event." %}</div>
         {% endif %}
-        <!-- ✅ Team CTA -->
+        <!-- 👥 Team CTA -->
         <div class="bg-light p-4 rounded mt-5 text-center border">
-            <h5>Registering a Team?</h5>
+            <h5>{% trans "Registering a Team?" %}</h5>
             <p class="mb-3">
-                If you're part of a club, school, or group of athletes, you can register your entire team and unlock group discounts.
+                {% trans "If you're part of a club, school, or group of athletes, you can register your entire team and unlock group discounts." %}
             </p>
-            <a href="/team-registration-intro/" class="btn btn-primary btn-lg">Start a Team Registration →</a>
+            <a href="/team-registration-intro/" class="btn btn-primary btn-lg">{% trans "Start a Team Registration →" %}</a>
         </div>
     </div>
 {% endblock %}

@@ -154,6 +154,36 @@ class Race(models.Model):
             packages, key=lambda p: p.final_price_display or Decimal("999999")
         )
 
+    def get_visible_packages(self):
+        """Return all RacePackages for this race that are currently visible."""
+        now = timezone.now()
+        return self.packages.filter(
+            Q(visible_until__isnull=True) | Q(visible_until__gt=now)
+        )
+
+    def get_packages_with_prices(self):
+        """Return all visible packages for this race with individual/team pricing and discounts."""
+        results = []
+
+        for package in self.get_visible_packages():
+            individual_price = package.get_final_price(is_team=False)
+            team_price = (
+                package.get_final_price(is_team=True)
+                if self.has_team_discount()
+                else None
+            )
+            # ✅ Fix: Query from self.special_prices instead of package
+            special_prices = self.special_prices.all()
+
+            results.append({
+                "package": package,
+                "individual_price": individual_price,
+                "team_price": team_price,
+                "special_prices": special_prices,
+            })
+
+        return sorted(results, key=lambda p: p["individual_price"])
+
     @property
     def min_participants(self):
         return self.race_type.min_participants

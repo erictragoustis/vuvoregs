@@ -38,10 +38,12 @@ class RacePackage(models.Model):
         ),
         verbose_name=_("Visible Until"),
     )
-    races = models.ManyToManyField(
+    race = models.ForeignKey(
         "event.Race",
+        on_delete=models.CASCADE,
         related_name="packages",
-        verbose_name=_("Races"),
+        verbose_name=_("Race"),
+        null=True,
     )
 
     class Meta:
@@ -49,7 +51,7 @@ class RacePackage(models.Model):
 
         constraints = [
             models.UniqueConstraint(
-                fields=["event", "name"], name="unique_package_per_event"
+                fields=["race", "name"], name="unique_package_per_race"
             )
         ]
 
@@ -61,13 +63,9 @@ class RacePackage(models.Model):
         """Check if this package is currently visible."""
         return not self.visible_until or self.visible_until > timezone.now()
 
-    def get_race(self):
-        """Return the first race associated (assumes one-to-one usage)."""
-        return self.races.first()
-
     def get_active_time_adjustment(self):
         """Returns the currently active time-based price adjustment, if any."""
-        race = self.get_race()
+        race = self.race
         if not race:
             return Decimal("0.00")
         now = timezone.now()
@@ -83,7 +81,7 @@ class RacePackage(models.Model):
         - package adjustment
         - time-based adjustment
         """
-        race = self.get_race()
+        race = self.race
         if not race:
             return Decimal("0.00")
 
@@ -122,11 +120,6 @@ class RacePackage(models.Model):
     def has_team_discount(self):
         """Check if this package has a team discount available."""
         return self.team_discount_threshold and self.team_discount_price
-
-    @property
-    def race(self):
-        """Return the first race associated with this package."""
-        return self.races.first()
 
     @property
     def final_price(self) -> Decimal:

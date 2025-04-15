@@ -31,15 +31,21 @@ class RacePackageTranslationOptions(TranslationOptions):
 
 @admin.register(RacePackage)
 class RacePackageAdmin(TranslationAdmin):
-    """Admin interface for the RacePackage model.
+    """Admin interface for the RacePackage model."""
 
-    Provides configuration for displaying, filtering, searching,
-    and ordering RacePackage instances
-    in the Django admin interface.
-    """
-
-    list_display = ("name", "event", "price_adjustment", "visible_until")
-    list_filter = ("event",)
-    search_fields = ("name", "event__name")
+    list_display = (
+        "name",
+        "event",
+        "race",
+        "price_adjustment",
+        "visible_until",
+        "is_visible_now",
+    )
+    list_filter = ("event", "race")
+    search_fields = ("name", "race__name", "race__event__name")
     ordering = ("event", "name")
     inlines = [RacePackageOptionInline]
+
+    @admin.display(boolean=True, description="Visible Now")
+    def is_visible_now(self, obj):
+        return obj.is_visible_now()
