@@ -24,6 +24,16 @@
         </div>
       </div>
     </div>
+    {% if requires_parental_consent %}
+      <div class="alert alert-warning mt-4">
+        <i class="fa-solid fa-triangle-exclamation me-1"></i>
+        One or more athletes are under 18 years old.
+        Please print and sign the parental declaration form:
+        <a href="{{ event.parental_declaration.url }}"
+           download
+           class="btn btn-sm btn-outline-primary ms-2">Download Parental Form</a>
+      </div>
+    {% endif %}
     <!-- ✅ Billing Form -->
     <form method="post" action="{% url 'create_payment' registration.id %}">
       {% csrf_token %}

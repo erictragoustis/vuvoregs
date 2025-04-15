@@ -62,7 +62,19 @@ class Event(models.Model):
     email = models.EmailField(
         max_length=255,
         blank=True,
-        help_text="Email address for event-related inquiries.",
+        help_text=_("Email address for event-related inquiries."),
+    )
+    pickup_date = models.DateField(
+        _("Pick Up Date"),
+        null=True,
+        blank=True,
+    )
+    parental_declaration = models.FileField(
+        upload_to="static/parental_declarations/",
+        blank=True,
+        null=True,
+        help_text=_("Optional parental consent form required for minors."),
+        verbose_name=_("Parental Declaration Form"),
     )
     max_participants = models.PositiveIntegerField(
         _("Max Participants"), null=True, blank=True

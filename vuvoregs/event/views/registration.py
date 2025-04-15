@@ -92,6 +92,7 @@ def confirm_registration(request, registration_id):
     registration = get_object_or_404(Registration, pk=registration_id)
     athletes = registration.athletes.select_related("package", "race")
     event = registration.event
+    any_minor = any(a.is_minor() for a in athletes)
     terms = getattr(event, "terms", None)
 
     if request.method == "POST":
@@ -120,5 +121,6 @@ def confirm_registration(request, registration_id):
             "athletes": athletes,
             "event": event,
             "billing_form": form,
+            "requires_parental_consent": any_minor and event.parental_declaration,
         },
     )

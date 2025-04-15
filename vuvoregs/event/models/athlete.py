@@ -107,6 +107,15 @@ class Athlete(models.Model):
         ).first()
         return tbp.price_adjustment if tbp else Decimal("0.00")
 
+    def is_minor(self) -> bool:
+        """Return True if athlete is under 18 on the event date."""
+        if not self.dob or not self.race or not self.race.event:
+            return False
+        age_at_event = (
+            self.race.event.date - self.dob
+        ).days // 365.25  # approximate in years
+        return age_at_event < 18
+
     def get_total_price(self) -> Decimal:
         """Calculate the final price for this athlete.
 
