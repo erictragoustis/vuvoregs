@@ -98,6 +98,13 @@ class RacePackage(models.Model):
             + self.get_active_time_adjustment()
         )
 
+    def set_display_price(self, race):
+        """Attach final and team price display attributes based on the given race."""
+        self.final_price_display = self.get_final_price(is_team=False)
+        self.team_price_display = (
+            self.get_final_price(is_team=True) if race.has_team_discount() else None
+        )
+
     def get_savings_amount(self):
         """Return savings compared to race base price, if any."""
         race = self.get_race()

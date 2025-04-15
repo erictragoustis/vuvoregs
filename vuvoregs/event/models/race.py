@@ -139,6 +139,17 @@ class Race(models.Model):
         )
         return base + self.get_current_price_adjustment()
 
+    def get_priced_packages(self):
+        """Return visible packages sorted by individual price, with display price attached."""
+        packages = self.packages.all()
+
+        for pkg in packages:
+            pkg.set_display_price(self)
+
+        return sorted(
+            packages, key=lambda p: p.final_price_display or Decimal("999999")
+        )
+
 
 class RaceType(models.Model):
     """Type/category of a race (e.g. Marathon, Relay, Sprint)."""

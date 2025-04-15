@@ -97,20 +97,20 @@
                             <div class="col-md-6">{{ form.hometown|as_crispy_field }}</div>
                             <div class="col-md-6">{{ form.pickup_point|as_crispy_field }}</div>
                         </div>
-                        <div class="mt-3">{{ form.special_price|as_crispy_field }}</div>
+                        {% if 'special_price' in form.fields %}<div class="mt-3">{{ form.special_price|as_crispy_field }}</div>{% endif %}
                         <div class="d-none">{{ form.package|as_crispy_field }}</div>
                         <label class="form-label mt-3">Select a Package</label>
                         <div class="row gx-2 gy-2 package-card-group">
-                            {% for pkg in form.fields.package.queryset %}
+                            {% for pkg in form.sorted_packages %}
                                 <div class="col-md-6">
                                     <div class="package-card {% if form.package.value == pkg.id|stringformat:'s' %}selected{% endif %}"
                                          data-package-id="{{ pkg.id }}">
                                         <h6 class="fw-bold">{{ pkg.name }}</h6>
                                         <p class="mb-1 small">{{ pkg.description|default:"No description" }}</p>
-                                        <p class="mb-0 fw-bold text-primary">
-                                            Price:
-                                            €{{ pkg.final_price|floatformat:2 }}
-                                        </p>
+                                        <p class="mb-0 fw-bold text-primary">Price: €{{ pkg.final_price_display|floatformat:2 }}</p>
+                                        {% if pkg.team_price_display %}
+                                            <p class="mb-0 text-muted small">Team Price: €{{ pkg.team_price_display|floatformat:2 }}</p>
+                                        {% endif %}
                                     </div>
                                 </div>
                             {% endfor %}

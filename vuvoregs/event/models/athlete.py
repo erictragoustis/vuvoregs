@@ -135,19 +135,32 @@ class Athlete(models.Model):
 
         return base_price + package_adj + time_adj - discount
 
-    def clean(self) -> None:
-        """Validate that all required package options have been selected."""
+    def clean(self):
+        """Validate that selected_options is a proper dict and required options are filled."""
         super().clean()
-        if not isinstance(self.selected_options, dict):
-            raise ValidationError("Package options must be filled out.")
 
-        expected = [opt.name for opt in self.package.packageoption_set.all()]
+        # 🧼 Ensure selected_options is at least a dict
+        if self.selected_options is None:
+            self.selected_options = {}
+
+        if not isinstance(self.selected_options, dict):
+            raise ValidationError(_("Package options must be a dictionary."))
+
+        if not self.package:
+            return  # nothing to validate without a package
+
+        # 🔍 Check for missing required options
+        required_options = [opt.name for opt in self.package.packageoption_set.all()]
         missing = [
             name
-            for name in expected
-            if name not in self.selected_options or not self.selected_options[name]
+            for name in required_options
+            if name not in self.selected_options
+            or not any(v.strip() for v in self.selected_options[name])
         ]
+
         if missing:
             raise ValidationError(
-                f"You must select a valid choice for: {', '.join(missing)}"
+                _("Missing selections for: %(missing)s.")
+                % {"missing": ", ".join(missing)}
             )
+        print("💾 selected_options =", self.selected_options)

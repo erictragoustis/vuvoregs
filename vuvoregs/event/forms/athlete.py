@@ -19,7 +19,7 @@ from django.utils.translation import gettext_lazy as _
 
 from event.models.athlete import Athlete
 from event.models.event import PickUpPoint
-from event.models.package import RaceSpecialPrice
+from event.models.package import RacePackage, RaceSpecialPrice
 from event.models.registration import Registration
 
 
@@ -69,16 +69,9 @@ class AthleteForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
-        """Initialize the form with dynamic context from the registration view.
-
-        Args:
-            *args: Positional arguments passed to the parent class.
-            **kwargs: Keyword arguments, including:
-                race (Race): The race the athlete is registering for.
-                packages (QuerySet): Available packages for the race.
-        """
+        """Initialize the form with dynamic context from the registration view."""
         race = kwargs.pop("race", None)
-        packages = kwargs.pop("packages", None)
+        kwargs.pop("packages", None)  # safe discard
         super().__init__(*args, **kwargs)
 
         self.request = None
@@ -86,30 +79,39 @@ class AthleteForm(forms.ModelForm):
         self.race = race
 
         if race:
-            special_prices = RaceSpecialPrice.objects.filter(race=race)
-            self.fields["special_price"] = ModelChoiceField(
-                queryset=special_prices,
-                required=False,
-                label=_("Special Price (optional)"),
-                widget=RadioSelect,
-            )
-            self.fields["special_price"].choices = [("", _("No discount"))] + list(
-                self.fields["special_price"].choices
-            )
+            self.instance.race = race
 
-        # Filter packages specific to the current race
-        if packages is not None:
-            self.fields["package"].queryset = packages
+            # 🧠 Sorted + priced packages from model
+            priced_packages = race.get_priced_packages()
+            self.fields["package"].queryset = RacePackage.objects.filter(
+                id__in=[pkg.id for pkg in priced_packages]
+            )
+            self.sorted_packages = priced_packages  # exposed for template
+
+            # 🎯 Optional special price radio field
+            special_prices = RaceSpecialPrice.objects.filter(race=race)
+            if special_prices.exists():
+                self.fields["special_price"] = ModelChoiceField(
+                    queryset=special_prices,
+                    required=False,
+                    label=_("Special Price (optional)"),
+                    widget=RadioSelect,
+                )
+                self.fields["special_price"].choices = [("", _("No discount"))] + list(
+                    self.fields["special_price"].choices
+                )
+            else:
+                self.fields.pop("special_price", None)
+
+            # 🧭 Pickup points filtered to current event
+            self.fields["pickup_point"].queryset = race.event.pickup_points.all()
+        else:
+            self.fields["pickup_point"].queryset = PickUpPoint.objects.none()
 
         self.fields["package"].required = True
         self.fields["package"].error_messages = {
             "required": _("Please select a package.")
         }
-
-        # Filter pickup points to those available for the current event
-        self.fields["pickup_point"].queryset = (
-            race.event.pickup_points.all() if race else PickUpPoint.objects.none()
-        )
 
     def clean(self):
         """Enrich the cleaned_data with selected package options from the POST data.
@@ -165,9 +167,34 @@ class MinParticipantsFormSet(BaseInlineFormSet):
         form.race = self.race
 
     def clean(self):
-        """Raise a validation error if fewer forms than required are submitted."""
+        """Parse selected options and validate minimum participant count."""
         super().clean()
 
+        # 🔁 Parse selected_options for each form from POST
+        for form in self.forms:
+            if not hasattr(form, "form_index") or not hasattr(form, "request"):
+                continue  # skip malformed forms
+
+            prefix = "athlete"
+            index = form.form_index
+            selected_options = {}
+
+            for key in form.request.POST:
+                if key.startswith(f"{prefix}-{index}-option-") and not key.endswith(
+                    "-name"
+                ):
+                    option_id = key.split(f"{prefix}-{index}-option-")[-1]
+                    option_name_key = f"{key}-name"
+                    option_name = form.request.POST.get(
+                        option_name_key, f"Option {option_id}"
+                    )
+                    values = form.request.POST.getlist(key)
+                    if values and any(v.strip() for v in values):
+                        selected_options[option_name] = values
+
+            form.instance.selected_options = selected_options or {}
+
+        # ✅ Then validate minimum participant count
         if self.race and self.race.min_participants:
             filled_forms = sum(
                 1
