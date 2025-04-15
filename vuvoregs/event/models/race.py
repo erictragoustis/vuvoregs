@@ -1,5 +1,6 @@
-"""This module defines models related to races, including Race, RaceType, and TimeBasedPrice.
+"""This module defines models related to races.
 
+including Race, RaceType, and TimeBasedPrice.
 It also includes a custom manager for Race to handle specific queries and methods
 to calculate pricing, discounts, and availability.
 """
@@ -88,7 +89,10 @@ class Race(models.Model):
 
     def __str__(self):
         """Return a string representation of the race."""
-        return f"{self.name} - {self.race_type.name} - {self.race_km} KM ({self.event.name})"
+        return (
+            f"{self.name} - {self.race_type.name} - {self.race_km} KM "
+            f"({self.event.name})"
+        )
 
     def is_open(self):
         """Return True if the race can currently accept registrations."""
@@ -140,7 +144,7 @@ class Race(models.Model):
         return base + self.get_current_price_adjustment()
 
     def get_priced_packages(self):
-        """Return visible packages sorted by individual price, with display price attached."""
+        """Return visible packages sorted by individual price, with display price attached."""  # noqa: E501
         packages = self.packages.all()
 
         for pkg in packages:
@@ -150,12 +154,32 @@ class Race(models.Model):
             packages, key=lambda p: p.final_price_display or Decimal("999999")
         )
 
+    @property
+    def min_participants(self):
+        return self.race_type.min_participants
+
+    def requires_roles(self):
+        return self.race_type.roles.exists()
+
+    def get_allowed_roles(self):
+        return self.race_type.roles.all()
+
 
 class RaceType(models.Model):
     """Type/category of a race (e.g. Marathon, Relay, Sprint)."""
 
     name = models.CharField(_("Name"), max_length=50)
     description = models.TextField(_("Description"), blank=True)
+    min_participants = models.PositiveIntegerField(default=1)
+    roles = models.ManyToManyField("RaceRole", blank=True)
+
+    def __str__(self):
+        """Return a string representation of Race Type."""
+        return self.name
+
+
+class RaceRole(models.Model):
+    name = models.CharField(_("Name"), max_length=50)
 
     def __str__(self):
         return self.name
@@ -191,5 +215,11 @@ class TimeBasedPrice(models.Model):
         verbose_name_plural = _("Time-Based Prices")
 
     def __str__(self):
-        """Return a string representation of the time-based price."""
-        return f"{self.label}: €{self.price_adjustment:+.2f} ({self.start_date.date()}–{self.end_date.date()})"
+        """Return a string representation of the time-based price.
+
+        Includes the label, price adjustment, and the date range.
+        """
+        return (
+            f"{self.label}: €{self.price_adjustment:+.2f} "
+            f"({self.start_date.date()}–{self.end_date.date()})"
+        )

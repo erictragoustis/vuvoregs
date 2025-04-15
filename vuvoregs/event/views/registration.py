@@ -51,7 +51,7 @@ def registration(request, race_id):
             if race.min_participants and valid_forms < race.min_participants:
                 messages.warning(
                     request,
-                    f"This race requires at least {race.min_participants} participants. "
+                    f"This race requires at least {race.min_participants} participants."
                     f"Please complete at least {race.min_participants} athlete forms.",
                 )
     else:

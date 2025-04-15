@@ -10,7 +10,7 @@ from modeltranslation.admin import TranslationAdmin
 from modeltranslation.translator import TranslationOptions, register
 
 from event.models.package import RaceSpecialPrice
-from event.models.race import Race, RaceType, TimeBasedPrice
+from event.models.race import Race, RaceRole, RaceType, TimeBasedPrice
 
 
 class TimeBasedPriceInline(admin.TabularInline):
@@ -55,7 +55,6 @@ class RaceAdmin(TranslationAdmin):
         "race_type",
         "race_km",
         "max_participants",
-        "min_participants",
         "team_discount_threshold",
         "base_price_individual",
         "base_price_team",
@@ -75,5 +74,11 @@ class RaceTypeTranslationOptions(TranslationOptions):
 class RaceTypeAdmin(TranslationAdmin):
     """Admin configuration for managing RaceType model in the Django admin interface."""
 
-    list_display = ("name",)
+    list_display = ("name", "min_participants")
     search_fields = ("name",)
+    filter_horizontal = ("roles",)
+
+
+@admin.register(RaceRole)
+class RaceRoleAdmin(admin.ModelAdmin):
+    list_display = ("name",)

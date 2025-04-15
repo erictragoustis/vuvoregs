@@ -77,11 +77,13 @@
                             <i class="fa-solid fa-user me-2"></i>
                             Athlete {{ forloop.counter }}
                         </h5>
-                        <button type="button"
-                                class="btn btn-sm btn-outline-danger remove-athlete"
-                                {% if forloop.first %}style="display: none;"{% endif %}>
-                            <i class="fa-solid fa-trash-can"></i>
-                        </button>
+                        {% if min_participants == 1 %}
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-danger remove-athlete"
+                                    {% if forloop.first %}style="display: none;"{% endif %}>
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        {% endif %}
                     </div>
                     <div class="card-body">
                         {{ form.non_field_errors }}
@@ -96,6 +98,7 @@
                             <div class="col-md-6">{{ form.dob|as_crispy_field }}</div>
                             <div class="col-md-6">{{ form.hometown|as_crispy_field }}</div>
                             <div class="col-md-6">{{ form.pickup_point|as_crispy_field }}</div>
+                            {% if form.fields.role %}<div class="col-md-6">{{ form.role|as_crispy_field }}</div>{% endif %}
                         </div>
                         {% if 'special_price' in form.fields %}<div class="mt-3">{{ form.special_price|as_crispy_field }}</div>{% endif %}
                         <div class="d-none">{{ form.package|as_crispy_field }}</div>
@@ -121,33 +124,32 @@
             {% endfor %}
         </div>
         <div class="d-flex justify-content-between mt-4">
-            <button type="button" class="btn btn-outline-secondary" id="addAthlete">
-                <i class="fa-solid fa-user-plus me-1"></i> Add Athlete
+            <button type="button"
+                    class="btn btn-outline-secondary"
+                    id="addAthlete"
+                    data-min-participants="{{ min_participants }}">
+                <i class="fa-solid fa-user-plus me-1"></i>
+                {% if min_participants|default:1 > 1 %}
+                    Add Group
+                {% else %}
+                    Add Athlete
+                {% endif %}
             </button>
+            {% if min_participants > 1 %}
+                <div id="removeGroupWrapper" class="collapse">
+                    <button type="button"
+                            class="btn btn-outline-danger"
+                            id="removeGroup"
+                            data-min-participants="{{ min_participants }}">
+                        <i class="fa-solid fa-user-minus me-1"></i> Remove Last Group
+                    </button>
+                </div>
+            {% endif %}
             <button type="submit" class="btn btn-primary">
                 <i class="fa-solid fa-credit-card me-1"></i> Proceed to Payment
             </button>
         </div>
     </form>
-    <!-- Terms Modal -->
-    <div class="modal fade"
-         id="termsModal"
-         tabindex="-1"
-         aria-labelledby="termsModalLabel"
-         aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="termsModalLabel">Terms & Conditions</h5>
-                    <button type="button"
-                            class="btn-close"
-                            data-bs-dismiss="modal"
-                            aria-label="Close"></button>
-                </div>
-                <div class="modal-body">{{ race.event.terms.content|safe }}</div>
-            </div>
-        </div>
-    </div>
 {% endblock %}
 {% block js_footer %}
     <script>
@@ -209,7 +211,6 @@
                 });
             });
     
-            // Trigger selected package card
             const selectedPackageId = hiddenSelect.value;
             const selectedCard = container.querySelector(`.package-card[data-package-id="${selectedPackageId}"]`);
             if (selectedCard) {
@@ -220,50 +221,122 @@
     
         function addForm() {
             const existingForm = document.querySelector('.athlete-form-card');
-            const newForm = existingForm.cloneNode(true);
-            const newFormPrefix = formCount;
+            const minGroupSize = minParticipants;
     
-            newForm.innerHTML = newForm.innerHTML
-                .replaceAll(new RegExp(formsetPrefix + '-(\d+)-', 'g'), `${formsetPrefix}-${newFormPrefix}-`)
-                .replaceAll(new RegExp('id_' + formsetPrefix + '-(\d+)-', 'g'), `id_${formsetPrefix}-${newFormPrefix}-`)
-                .replaceAll(new RegExp('for="' + formsetPrefix + '-(\d+)-', 'g'), `for="${formsetPrefix}-${newFormPrefix}-`);
+            for (let i = 0; i < minGroupSize; i++) {
+                const newFormPrefix = formCount;
+                const newForm = existingForm.cloneNode(true);
     
-            newForm.setAttribute('data-index', newFormPrefix);
+                newForm.innerHTML = newForm.innerHTML
+                    .replaceAll(new RegExp(formsetPrefix + '-(\\d+)-', 'g'), `${formsetPrefix}-${newFormPrefix}-`)
+                    .replaceAll(new RegExp('id_' + formsetPrefix + '-(\\d+)-', 'g'), `id_${formsetPrefix}-${newFormPrefix}-`)
+                    .replaceAll(new RegExp('for="' + formsetPrefix + '-(\\d+)-', 'g'), `for="${formsetPrefix}-${newFormPrefix}-`);
     
-            newForm.querySelectorAll('input, select, textarea').forEach(input => {
-                if (!['hidden', 'csrfmiddlewaretoken'].includes(input.type)) {
-                    if (input.type === 'checkbox') {
-                        input.checked = false;
-                    } else {
+                newForm.setAttribute('data-index', newFormPrefix);
+    
+                newForm.querySelectorAll('input, select, textarea').forEach(input => {
+                    if (!['hidden', 'csrfmiddlewaretoken'].includes(input.type)) {
                         input.value = '';
+                        if (input.type === 'checkbox') input.checked = false;
+                    }
+                });
+    
+                newForm.querySelectorAll('.is-invalid').forEach(input => input.classList.remove('is-invalid'));
+                newForm.classList.remove('border-danger');
+                newForm.querySelectorAll('.invalid-feedback, .errorlist').forEach(el => el.remove());
+    
+                const removeBtn = newForm.querySelector('.remove-athlete');
+                if (removeBtn) {
+                    if (minParticipants === 1) {
+                        removeBtn.style.display = 'inline-block';
+                    } else {
+                        removeBtn.remove();
                     }
                 }
-            });
     
-            newForm.querySelectorAll('.is-invalid').forEach(input => input.classList.remove('is-invalid'));
-            newForm.classList.remove('border-danger');
-            newForm.querySelectorAll('.invalid-feedback, .errorlist').forEach(el => el.remove());
+                document.getElementById('athleteForms').appendChild(newForm);
+                newForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
     
-            const removeBtn = newForm.querySelector('.remove-athlete');
-            if (removeBtn) removeBtn.style.display = 'inline-block';
+                const header = newForm.querySelector('.card-header h5');
+                if (header) {
+                    const icon = header.querySelector('i');
+                    header.innerHTML = '';
+                    if (icon) header.appendChild(icon);
+                    header.append(` Athlete ${formCount + 1}`);
+                }
     
-            document.getElementById('athleteForms').appendChild(newForm);
-            newForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    
-            formCount++;
-            document.getElementById(`id_${formsetPrefix}-TOTAL_FORMS`).value = formCount;
-    
-            const header = newForm.querySelector('.card-header h5');
-            if (header) {
-                const icon = header.querySelector('i');
-                header.innerHTML = '';
-                if (icon) header.appendChild(icon);
-                header.append(` Athlete ${formCount}`);
+                bindPackageCards(newForm);
+                formCount++;
             }
     
-            bindPackageCards(newForm);
+            document.getElementById(`id_${formsetPrefix}-TOTAL_FORMS`).value = formCount;
             bindRemoveButtons();
+            // ✅ Show removeGroup button if enough forms
+            const removeGroupBtn = document.getElementById("removeGroup");
+            if (removeGroupBtn && formCount > minParticipants) {
+                const wrapper = document.getElementById("removeGroupWrapper");
+            if (wrapper && formCount > minParticipants) {
+                bootstrap.Collapse.getOrCreateInstance(wrapper).show();
+            }
+            }
         }
+
+        function removeGroup() {
+            const groupSize = minParticipants;
+            const allCards = document.querySelectorAll('.athlete-form-card');
+
+            if (allCards.length <= groupSize) {
+                const alert = document.getElementById("minParticipantAlert");
+                const alertText = document.getElementById("minParticipantAlertText");
+                alertText.textContent = `You must keep at least ${groupSize} participant(s).`;
+                alert.classList.remove("d-none");
+                setTimeout(() => alert.classList.add("d-none"), 4000);
+                return;
+            }
+
+            // 🧹 Remove the last full group
+            for (let i = 0; i < groupSize; i++) {
+                const lastCard = document.querySelector('.athlete-form-card:last-of-type');
+                if (lastCard) lastCard.remove();
+            }
+
+            // 🧠 Re-index forms and update total count
+            const remainingCards = document.querySelectorAll('.athlete-form-card');
+            remainingCards.forEach((cardEl, newIndex) => {
+                cardEl.setAttribute('data-index', newIndex);
+
+                const header = cardEl.querySelector('.card-header h5');
+                if (header) {
+                    const icon = header.querySelector('i');
+                    header.innerHTML = '';
+                    if (icon) header.appendChild(icon);
+                    header.append(` Athlete ${newIndex + 1}`);
+                }
+
+                cardEl.querySelectorAll('[name], [id], label[for]').forEach(el => {
+                    ['name', 'id', 'for'].forEach(attr => {
+                        const val = el.getAttribute(attr);
+                        if (val && val.includes(`${formsetPrefix}-`)) {
+                            const updated = val.replace(new RegExp(`${formsetPrefix}-\\d+-`, 'g'), `${formsetPrefix}-${newIndex}-`);
+                            el.setAttribute(attr, updated);
+                        }
+                    });
+                });
+            });
+
+            formCount = remainingCards.length;
+            document.getElementById(`id_${formsetPrefix}-TOTAL_FORMS`).value = formCount;
+            // ✅ Hide removeGroup button if we're back to base
+            const removeGroupBtn = document.getElementById("removeGroup");
+            if (removeGroupBtn && formCount <= minParticipants) {
+                const wrapper = document.getElementById("removeGroupWrapper");
+                if (wrapper && formCount <= minParticipants) {
+                    bootstrap.Collapse.getOrCreateInstance(wrapper).hide();
+                }
+            }
+
+        }
+
     
         function bindRemoveButtons() {
             document.querySelectorAll('.remove-athlete').forEach(button => {
@@ -298,7 +371,7 @@
                             ['name', 'id', 'for'].forEach(attr => {
                                 const val = el.getAttribute(attr);
                                 if (val && val.includes(`${formsetPrefix}-`)) {
-                                    const updated = val.replace(new RegExp(`${formsetPrefix}-\d+-`, 'g'), `${formsetPrefix}-${newIndex}-`);
+                                    const updated = val.replace(new RegExp(`${formsetPrefix}-\\d+-`, 'g'), `${formsetPrefix}-${newIndex}-`);
                                     el.setAttribute(attr, updated);
                                 }
                             });
@@ -312,8 +385,12 @@
         }
     
         document.querySelectorAll('.athlete-form-card').forEach(bindPackageCards);
-        document.getElementById('addAthlete').addEventListener('click', addForm);
         bindRemoveButtons();
+        document.getElementById('addAthlete').addEventListener('click', addForm);
+        const removeGroupBtn = document.getElementById("removeGroup");
+        if (removeGroupBtn) {
+            removeGroupBtn.addEventListener("click", removeGroup);
+        }
     });
     </script>
 {% endblock %}

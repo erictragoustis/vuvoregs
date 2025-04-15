@@ -163,4 +163,13 @@ class Athlete(models.Model):
                 _("Missing selections for: %(missing)s.")
                 % {"missing": ", ".join(missing)}
             )
+
+        # ✅ Validate role if the race requires roles
+        if self.race and self.race.requires_roles():
+            allowed = self.race.get_allowed_roles()
+            if self.role not in allowed:
+                raise ValidationError({
+                    "role": _("Invalid role. Must be one of: %(roles)s.")
+                    % {"roles": ", ".join(str(r) for r in allowed)}
+                })
         print("💾 selected_options =", self.selected_options)

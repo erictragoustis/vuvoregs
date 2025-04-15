@@ -88,6 +88,17 @@ class AthleteForm(forms.ModelForm):
             )
             self.sorted_packages = priced_packages  # exposed for template
 
+            # 🎯 Role field if the race type requires it
+            if race.requires_roles():
+                self.fields["role"] = forms.ModelChoiceField(
+                    queryset=race.get_allowed_roles(),
+                    required=True,
+                    label=_("Role"),
+                    help_text=_("Select the role this athlete will perform."),
+                )
+            else:
+                self.fields.pop("role", None)
+
             # 🎯 Optional special price radio field
             special_prices = RaceSpecialPrice.objects.filter(race=race)
             if special_prices.exists():
@@ -167,44 +178,39 @@ class MinParticipantsFormSet(BaseInlineFormSet):
         form.race = self.race
 
     def clean(self):
-        """Parse selected options and validate minimum participant count."""
+        """Validate number of participants and required roles."""
         super().clean()
 
-        # 🔁 Parse selected_options for each form from POST
-        for form in self.forms:
-            if not hasattr(form, "form_index") or not hasattr(form, "request"):
-                continue  # skip malformed forms
+        if not self.race:
+            return
 
-            prefix = "athlete"
-            index = form.form_index
-            selected_options = {}
+        # ✅ Get valid athlete forms (not marked for deletion, have changes)
+        filled_forms = [
+            form
+            for form in self.forms
+            if form.has_changed() and not form.cleaned_data.get("DELETE", False)
+        ]
 
-            for key in form.request.POST:
-                if key.startswith(f"{prefix}-{index}-option-") and not key.endswith(
-                    "-name"
-                ):
-                    option_id = key.split(f"{prefix}-{index}-option-")[-1]
-                    option_name_key = f"{key}-name"
-                    option_name = form.request.POST.get(
-                        option_name_key, f"Option {option_id}"
-                    )
-                    values = form.request.POST.getlist(key)
-                    if values and any(v.strip() for v in values):
-                        selected_options[option_name] = values
-
-            form.instance.selected_options = selected_options or {}
-
-        # ✅ Then validate minimum participant count
-        if self.race and self.race.min_participants:
-            filled_forms = sum(
-                1
-                for form in self.forms
-                if form.has_changed() and not form.cleaned_data.get("DELETE", False)
-            )
-            if filled_forms < self.race.min_participants:
+        #  Enforce total min participants (from race_type)
+        if self.race.race_type.min_participants:
+            if len(filled_forms) < self.race.race_type.min_participants:
                 raise ValidationError(
                     _("This race requires at least %(min)d participants.")
-                    % {"min": self.race.min_participants}
+                    % {"min": self.race.race_type.min_participants}
+                )
+
+        # Enforce required roles if race demands it
+        if self.race.requires_roles():
+            required_roles = list(self.race.get_allowed_roles())
+            provided_roles = {form.cleaned_data.get("role") for form in filled_forms}
+            missing_roles = [
+                role for role in required_roles if role not in provided_roles
+            ]
+
+            if missing_roles:
+                raise ValidationError(
+                    _("The following roles must be assigned: %(roles)s.")
+                    % {"roles": ", ".join(str(role) for role in missing_roles)}
                 )
 
 
