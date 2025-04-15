@@ -19,7 +19,7 @@ from event.views import payment_webhook
 
 @admin.action(description="Set payment status to 'confirmed'")
 def simulate_success(modeladmin, request, queryset):
-    """Set the status of selected payments to 'confirmed' and update related registrations.
+    """Set the status of selected payments to 'confirmed' and update registrations.
 
     Parameters
     ----------
@@ -42,7 +42,7 @@ def simulate_success(modeladmin, request, queryset):
 
 @admin.action(description="Set payment status to 'failed'")
 def simulate_failure(modeladmin, request, queryset):
-    """Set the status of selected payments to 'rejected' and update related registrations.
+    """Set the status of selected payments to 'rejected' and update  registrations.
 
     Parameters
     ----------

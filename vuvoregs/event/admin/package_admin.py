@@ -13,7 +13,7 @@ from event.models.package import PackageOption, RacePackage
 
 
 class RacePackageOptionInline(admin.TabularInline):
-    """Inline admin configuration for managing PackageOption models within RacePackage."""
+    """Inline admin configuration for managing PackageOption models."""
 
     model = PackageOption
     extra = 1
@@ -33,7 +33,8 @@ class RacePackageTranslationOptions(TranslationOptions):
 class RacePackageAdmin(TranslationAdmin):
     """Admin interface for the RacePackage model.
 
-    Provides configuration for displaying, filtering, searching, and ordering RacePackage instances
+    Provides configuration for displaying, filtering, searching,
+    and ordering RacePackage instances
     in the Django admin interface.
     """
 

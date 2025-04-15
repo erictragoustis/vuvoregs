@@ -1,3 +1,10 @@
+"""Admin module for managing event registrations and associated athletes.
+
+This module defines Django admin interfaces for the Registration and Athlete
+models, providing functionalities such as inline editing, filtering, and
+custom display fields.
+"""
+
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
@@ -33,7 +40,7 @@ class AthleteInline(admin.TabularInline):
         obj : Athlete
             The athlete instance whose selected options are to be formatted.
 
-        Returns
+        Returns,
         -------
         str
             A formatted string of selected options or a placeholder if none exist.
@@ -124,7 +131,7 @@ class RegistrationAdmin(admin.ModelAdmin):
         obj : Registration
             The registration instance for which the payment link is generated.
 
-        Returns
+        Returns,
         -------
         str
             An HTML link to the payment details if a payment exists, or "—" if not.
