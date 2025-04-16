@@ -123,3 +123,9 @@ class Registration(models.Model):
         self.payment_status = "failed"
         self.status = "failed"
         self.save(update_fields=["payment_status", "status"])
+
+    def qualifies_for_team_discount(self, race) -> bool:
+        """Return True if the registration has enough athletes to trigger a team discount."""
+        if not race.team_discount_threshold:
+            return False
+        return self.athletes.filter(race=race).count() >= race.team_discount_threshold

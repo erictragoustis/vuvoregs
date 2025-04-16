@@ -117,23 +117,16 @@ class Athlete(models.Model):
         return age_at_event < 18
 
     def get_total_price(self) -> Decimal:
-        """Calculate the final price for this athlete.
+        """Calculate and return the total price for the athlete's registration.
 
-        Formula:
-            base (team or individual)
-          + time-based adjustment
-          + package adjustment
-          - race-level special discount
+        The total price is determined by combining the base price, package adjustment,
+        time-based adjustment, and subtracting any applicable discounts.
         """
-        race = self.race
-        registration = self.registration
-        team_size = registration.athletes.count()
+        is_team = self.registration.qualifies_for_team_discount(self.race)
 
-        is_team = (
-            race.team_discount_threshold and team_size >= race.team_discount_threshold
+        base_price = (
+            self.race.base_price_team if is_team else self.race.base_price_individual
         )
-
-        base_price = race.base_price_team if is_team else race.base_price_individual
         discount = (
             self.special_price.discount_amount
             if self.special_price
@@ -172,6 +165,18 @@ class Athlete(models.Model):
                 _("Missing selections for: %(missing)s.")
                 % {"missing": ", ".join(missing)}
             )
+
+        # 🔒 Validate selected values are among allowed options (if options_json is defined)
+        for option in self.package.packageoption_set.all():
+            selected = self.selected_options.get(option.name, [])
+            if not isinstance(selected, list):
+                selected = [selected]
+            allowed = option.options_json
+            for value in selected:
+                if value not in allowed:
+                    raise ValidationError(
+                        _(f"Invalid value '{value}' for option '{option.name}'.")
+                    )
 
         # ✅ Validate role if the race requires roles
         if self.race and self.race.requires_roles():
