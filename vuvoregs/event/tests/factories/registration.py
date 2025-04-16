@@ -1,7 +1,7 @@
 # tests/factories/registration.py
 import factory
 from event.models import Registration
-from tests.factories.race import RaceFactory
+from event.tests.factories.race import RaceFactory
 
 
 class RegistrationFactory(factory.django.DjangoModelFactory):

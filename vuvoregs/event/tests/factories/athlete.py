@@ -3,10 +3,10 @@ import factory
 import json
 from faker import Faker
 from event.models import Athlete
-from tests.factories.registration import RegistrationFactory
-from tests.factories.race_package import RacePackageFactory
-from tests.factories.event import PickUpPointFactory
-from tests.factories.terms import TermsFactory
+from event.tests.factories.registration import RegistrationFactory
+from event.tests.factories.race_package import RacePackageFactory
+from event.tests.factories.event import PickUpPointFactory
+from event.tests.factories.terms import TermsFactory
 
 fake = Faker()
 

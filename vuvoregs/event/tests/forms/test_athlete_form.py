@@ -1,10 +1,10 @@
 import pytest
 from django.http import QueryDict
 from event.forms import AthleteForm
-from tests.factories.race import RaceFactory
-from tests.factories.race_package import RacePackageFactory
-from tests.factories.event import PickUpPointFactory
-from tests.factories.terms import TermsFactory
+from event.tests.factories.race import RaceFactory
+from event.tests.factories.race_package import RacePackageFactory
+from event.tests.factories.event import PickUpPointFactory
+from event.tests.factories.terms import TermsFactory
 
 
 @pytest.mark.django_db

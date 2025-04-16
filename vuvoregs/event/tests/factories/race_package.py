@@ -1,7 +1,7 @@
 # tests/factories/race_package.py
 import factory
 from event.models import RacePackage
-from tests.factories.race import RaceFactory
+from event.tests.factories.race import RaceFactory
 
 
 class RacePackageFactory(factory.django.DjangoModelFactory):
