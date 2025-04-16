@@ -20,6 +20,7 @@ class RaceTypeFactory(factory.django.DjangoModelFactory):
         if extracted:
             for role in extracted:
                 self.roles.add(role)
+            self.save()  # ✅ manual save instead of relying on auto-save
 
 
 class RaceFactory(factory.django.DjangoModelFactory):
