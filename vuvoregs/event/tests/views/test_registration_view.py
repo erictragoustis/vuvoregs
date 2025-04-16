@@ -10,7 +10,7 @@ from event.models import RaceSpecialPrice, Registration, Athlete
 @pytest.mark.django_db
 def test_registration_post_with_special_price(client):
     """Simulate registration form POST with special price selected."""
-    race = RaceFactory(min_participants=1)
+    race = RaceFactory(race_type__min_participants=1)
     package = RacePackageFactory(race=race, price=50)
     pickup = PickUpPointFactory(event=race.event)
     terms = TermsFactory(event=race.event)

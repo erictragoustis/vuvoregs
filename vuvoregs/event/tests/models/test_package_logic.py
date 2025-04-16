@@ -14,7 +14,7 @@ def test_race_package_returns_base_price():
 @pytest.mark.django_db
 def test_race_package_applies_special_price():
     """get_final_price should subtract special price discount if present."""
-    race = RaceFactory()
+    race = RaceFactory(race_type__min_participants=1)
     pkg = RacePackageFactory(race=race, price=50)
 
     # Attach a special price

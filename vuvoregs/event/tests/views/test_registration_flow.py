@@ -23,7 +23,7 @@ def test_registration_get_renders_form(client):
 @pytest.mark.django_db
 def test_registration_post_creates_registration_and_athletes(client):
     """POSTing valid data creates a registration and athletes."""
-    race = RaceFactory(min_participants=2)
+    race = RaceFactory(race_type__min_participants=2)
     package = RacePackageFactory(race=race, price=30)
     pickup = PickUpPointFactory(event=race.event)
     TermsFactory(event=race.event)
@@ -67,7 +67,7 @@ def test_registration_post_creates_registration_and_athletes(client):
 @pytest.mark.django_db
 def test_registration_post_missing_terms_is_invalid(client):
     """Formset should reject submissions where terms are not agreed."""
-    race = RaceFactory(min_participants=1)
+    race = RaceFactory(race_type__min_participants=1)
     package = RacePackageFactory(race=race)
     pickup = PickUpPointFactory(event=race.event)
     TermsFactory(event=race.event)
@@ -99,7 +99,7 @@ def test_registration_post_missing_terms_is_invalid(client):
 @pytest.mark.django_db
 def test_registration_post_missing_package_is_invalid(client):
     """Formset should reject submissions with no package selected."""
-    race = RaceFactory(min_participants=1)
+    race = RaceFactory(race_type__min_participants=1)
     pickup = PickUpPointFactory(event=race.event)
     TermsFactory(event=race.event)
 
@@ -129,7 +129,7 @@ def test_registration_post_missing_package_is_invalid(client):
 @pytest.mark.django_db
 def test_registration_post_not_enough_participants(client):
     """Should fail if number of athletes < race.min_participants."""
-    race = RaceFactory(min_participants=3)
+    race = RaceFactory(race_type__min_participants=3)
     package = RacePackageFactory(race=race)
     pickup = PickUpPointFactory(event=race.event)
     TermsFactory(event=race.event)

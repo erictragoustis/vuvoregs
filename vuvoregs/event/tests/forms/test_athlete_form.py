@@ -10,7 +10,7 @@ from event.tests.factories.terms import TermsFactory
 @pytest.mark.django_db
 def test_athlete_form_requires_package_and_terms():
     """Form should error if package or T&Cs not agreed."""
-    race = RaceFactory()
+    race = RaceFactory(race_type__min_participants=1)
     package = RacePackageFactory(race=race)
     pickup = PickUpPointFactory(event=race.event)
     TermsFactory(event=race.event)  # required for form setup
@@ -38,7 +38,7 @@ def test_athlete_form_requires_package_and_terms():
 @pytest.mark.django_db
 def test_athlete_form_valid_with_terms_and_package(client):
     """Form should validate when terms and package are present."""
-    race = RaceFactory()
+    race = RaceFactory(race_type__min_participants=1)
     package = RacePackageFactory(race=race)
     pickup = PickUpPointFactory(event=race.event)
     TermsFactory(event=race.event)

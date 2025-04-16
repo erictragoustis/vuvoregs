@@ -10,7 +10,7 @@ from event.tests.factories.race import RaceFactory
 @pytest.mark.django_db
 def test_viva_webhook_marks_registration_confirmed(client):
     """POSTing valid Viva webhook with known TransactionId should confirm payment."""
-    race = RaceFactory()
+    race = RaceFactory(race_type__min_participants=1)
     registration = RegistrationFactory(
         race=race, transaction_id="abc123", total_amount=50
     )

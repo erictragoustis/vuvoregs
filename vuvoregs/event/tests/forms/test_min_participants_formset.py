@@ -12,7 +12,7 @@ from event.tests.factories.terms import TermsFactory
 @pytest.mark.django_db
 def test_formset_requires_minimum_participants():
     """Formset should raise ValidationError if min_participants is not met."""
-    race = RaceFactory(min_participants=2)
+    race = RaceFactory(race_type__min_participants=2)
     package = RacePackageFactory(race=race)
     pickup = PickUpPointFactory(event=race.event)
     TermsFactory(event=race.event)

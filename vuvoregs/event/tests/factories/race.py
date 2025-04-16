@@ -18,5 +18,7 @@ class RaceFactory(factory.django.DjangoModelFactory):
     name = factory.Sequence(lambda n: f"Race {n}")
     race_km = factory.Iterator([5, 10, 21])
     event = factory.SubFactory(EventFactory)
-    race_type = factory.SubFactory(RaceTypeFactory)
-    min_participants = 1
+    race_type = factory.SubFactory(
+        RaceTypeFactory,
+        min_participants=1,  # default so tests won't break if not set explicitly
+    )
