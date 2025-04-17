@@ -157,11 +157,14 @@ LOCALE_PATHS = [
 # STATIC AND MEDIA FILES
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
-
-
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
 # DEFAULT PRIMARY KEY FIELD TYPE
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

@@ -143,7 +143,7 @@ class Athlete(models.Model):
             if self.special_price
             else Decimal("0.00")
         )
-        package_adj = self.package.price_adjustment or Decimal("0.00")
+        package_adj = self.package.price_adjustment if self.package else Decimal("0.00")
         time_adj = self.get_time_based_adjustment()
 
         return base_price + package_adj + time_adj - discount
@@ -193,10 +193,16 @@ class Athlete(models.Model):
 
         # ✅ Validate role if the race requires roles
         if self.race and self.race.requires_roles():
-            allowed = self.race.get_allowed_roles()
-            if self.role not in allowed:
+            allowed_ids = set(
+                self.race.get_allowed_roles().values_list("id", flat=True)
+            )
+            print(f"✅ Checking role: {self.role_id} against allowed: {allowed_ids}")
+            if self.role_id not in allowed_ids:
                 raise ValidationError({
                     "role": _("Invalid role. Must be one of: %(roles)s.")
-                    % {"roles": ", ".join(str(r) for r in allowed)}
+                    % {
+                        "roles": ", ".join(
+                            str(r) for r in self.race.get_allowed_roles()
+                        )
+                    }
                 })
-        print("💾 selected_options =", self.selected_options)

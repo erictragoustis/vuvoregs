@@ -7,6 +7,7 @@ from django.views.decorators.http import require_http_methods
 
 from event.forms import BillingForm, athlete_formset_factory
 from event.models import Race, Registration
+from django.utils.translation import gettext_lazy as _
 
 
 @require_http_methods(["GET", "POST"])
@@ -28,7 +29,7 @@ def registration(request, race_id):
 
     if request.method == "POST":
         formset = AthleteFormSet(data=request.POST, **formset_kwargs)
-        formset.request = request
+        formset.setRequest(request)
 
         if formset.is_valid():
             try:
@@ -37,20 +38,6 @@ def registration(request, race_id):
                     athletes = formset.save(commit=False)
 
                     for athlete in athletes:
-                        if not athlete.package_id:
-                            messages.error(
-                                request, "Each athlete must have a package selected."
-                            )
-                            return render(
-                                request,
-                                "registration/registration.html",
-                                {
-                                    "race": race,
-                                    "formset": formset,
-                                    "min_participants": race.min_participants or 1,
-                                },
-                            )
-
                         athlete.registration = registration
                         athlete.race = race
                         athlete.save()
@@ -60,25 +47,23 @@ def registration(request, race_id):
                     return redirect(
                         "confirm_registration", registration_id=registration.id
                     )
+
             except Exception as e:
                 messages.error(
                     request,
                     f"Oops! Something went wrong during registration: {e}",
                 )
                 return redirect(request.path)
+
         else:
-            valid_forms = sum(
-                1 for form in formset if form.is_valid() and form.has_changed()
+            messages.warning(
+                request,
+                _("Please fix the errors below and try again."),
             )
-            if race.min_participants and valid_forms < race.min_participants:
-                messages.warning(
-                    request,
-                    f"This race requires at least {race.min_participants} participants.",
-                )
 
     else:
         formset = AthleteFormSet(**formset_kwargs)
-        formset.request = request
+        formset.setRequest(request)
 
     return render(
         request,

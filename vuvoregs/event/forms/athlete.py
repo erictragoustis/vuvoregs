@@ -24,14 +24,9 @@ from event.models.registration import Registration
 
 
 class AthleteForm(forms.ModelForm):
-    """Form for capturing a single athlete's data during registration.
-
-    Supports dynamic race packages, special prices, and pickup point selection.
-    """
+    """Form for capturing a single athlete's data during registration."""
 
     class Meta:
-        """Meta class to define model and form field configurations."""
-
         model = Athlete
         fields = [
             "first_name",
@@ -46,14 +41,13 @@ class AthleteForm(forms.ModelForm):
             "hometown",
             "package",
             "special_price",
-            "role",
+            # ❌ Don't include "role" here — we inject it conditionally if needed
         ]
-
         widgets = {
             "dob": forms.DateInput(
                 format="%Y-%m-%d",
                 attrs={"type": "date", "class": "form-control"},
-            ),
+            )
         }
         labels = {
             "first_name": _("First Name"),
@@ -68,77 +62,103 @@ class AthleteForm(forms.ModelForm):
             "hometown": _("Hometown"),
             "package": _("Package"),
             "special_price": _("Special Price"),
-            "role": _("Role"),
         }
 
     def __init__(self, *args, **kwargs):
-        """Initialize the form with dynamic context from the registration view."""
-        race = kwargs.pop("race", None)
-        kwargs.pop("packages", None)  # safe discard
+        self.race = kwargs.pop("race", None)
         super().__init__(*args, **kwargs)
 
         self.request = None
-        self.form_index = None
-        self.race = race
+        self.formIndex = None
 
-        if race:
-            self.instance.race = race
+        if self.race:
+            self.instance.race = self.race
+            self.populatePackageField()
+            self.populateRoleField()
+            self.populateSpecialPrices()
+            self.filterPickupPoints()
 
-            # 🧠 Sorted + priced packages from model
-            priced_packages = race.get_priced_packages()
-            self.fields["package"].queryset = RacePackage.objects.filter(
-                id__in=[pkg.id for pkg in priced_packages]
-            )
-            self.sorted_packages = priced_packages  # exposed for template
+        self.fields["package"].required = False
+        self.fields["package"].error_messages = {
+            "required": _("Please select a package.")
+        }
 
-            # 🎯 Role field if the race type requires it
-        if race and race.requires_roles():
+    def populatePackageField(self):
+        """Populate package queryset and preselect the only available package if applicable."""
+        packages_data = self.race.get_packages_with_prices()
+
+        # Defensive: extract packages that exist
+        available_packages = [
+            d["package"]
+            for d in packages_data
+            if "package" in d and d["package"] is not None
+        ]
+        print("📦 Available package count:", len(packages_data))
+        print("📦 Extracted packages:", available_packages)
+
+        # Set field queryset
+        self.fields["package"].queryset = RacePackage.objects.filter(
+            id__in=[pkg.id for pkg in available_packages]
+        )
+        self.sortedPackages = packages_data
+
+        # Auto-select if only one package
+        if len(available_packages) == 1:
+            self.initial["package"] = available_packages[0]
+
+    def populateRoleField(self):
+        """Dynamically inject the role field only if needed."""
+        if not self.race or not self.race.requires_roles():
+            return
+
+        allowed_roles = self.race.get_allowed_roles()
+        if allowed_roles.exists():
             self.fields["role"] = forms.ModelChoiceField(
-                queryset=race.get_allowed_roles(),
+                queryset=allowed_roles,
                 required=True,
                 label=_("Role"),
                 help_text=_("Select the role this athlete will perform."),
             )
 
-            # 🎯 Optional special price radio field
-            special_prices = RaceSpecialPrice.objects.filter(race=race)
-            if special_prices.exists():
-                self.fields["special_price"] = ModelChoiceField(
-                    queryset=special_prices,
-                    required=False,
-                    label=_("Special Price (optional)"),
-                    widget=RadioSelect,
-                )
-                self.fields["special_price"].choices = [("", _("No discount"))] + list(
-                    self.fields["special_price"].choices
-                )
-            else:
-                self.fields.pop("special_price", None)
-
-            # 🧭 Pickup points filtered to current event
-            self.fields["pickup_point"].queryset = race.event.pickup_points.all()
+    def populateSpecialPrices(self):
+        """Inject optional special price field if defined on race."""
+        specials = RaceSpecialPrice.objects.filter(race=self.race)
+        if specials.exists():
+            self.fields["special_price"] = ModelChoiceField(
+                queryset=specials,
+                required=False,
+                label=_("Special Price (optional)"),
+                widget=RadioSelect,
+            )
+            self.fields["special_price"].choices = [("", _("No discount"))] + list(
+                self.fields["special_price"].choices
+            )
         else:
-            self.fields["pickup_point"].queryset = PickUpPoint.objects.none()
+            self.fields.pop("special_price", None)
 
-        self.fields["package"].required = True
-        self.fields["package"].error_messages = {
-            "required": _("Please select a package.")
-        }
+    def filterPickupPoints(self):
+        """Filter pickup points to match the current event only."""
+        self.fields["pickup_point"].queryset = self.race.event.pickup_points.all()
+
+    def setRequestAndIndex(self, request, index):
+        """Used by formset to pass request context for option parsing."""
+        self.request = request
+        self.formIndex = index
 
     def clean(self):
-        """Enrich the cleaned_data with selected package options from the POST data.
-
-        Also validates that a package is selected and extracts dynamic options.
-        """
+        """Parse dynamic package options from POST data."""
         cleaned_data = super().clean()
+        if "role" not in cleaned_data and "role" in self.initial:
+            cleaned_data["role"] = self.initial["role"]
+        package = cleaned_data.get("package")
 
-        if not cleaned_data.get("package"):
+        if not package:
             self.add_error("package", _("You must select a package."))
 
-        if self.request and self.form_index is not None:
-            prefix = "athlete"
-            index = self.form_index
+        if self.request and self.formIndex is not None:
             selected_options = {}
+            prefix = "athlete"
+            index = self.formIndex
 
             for key in self.request.POST:
                 if key.startswith(f"{prefix}-{index}-option-") and not key.endswith(
@@ -154,89 +174,112 @@ class AthleteForm(forms.ModelForm):
                     if values and any(v.strip() for v in values):
                         selected_options[option_name] = values
 
-            self.instance.selected_options = selected_options or {}
-
-        if settings.DEBUG:
-            print("🧼 CLEANED:", cleaned_data)
-            print("🧾 ERRORS:", self.errors)
+            self.instance.role = self.cleaned_data.get("role") or self.initial.get(
+                "role"
+            )
 
         return cleaned_data
 
 
 class MinParticipantsFormSet(BaseInlineFormSet):
-    """Custom formset that enforces a race's minimum number of participants."""
+    """Custom formset that enforces.
+
+    - minimum number of participants
+    - valid roles if the race requires them
+    """
 
     def __init__(self, *args, **kwargs):
         self.race = kwargs.pop("race", None)
         super().__init__(*args, **kwargs)
+        self.request = None
+
+    def setRequest(self, request):
+        """Attach the request to each form (used for parsing selected package options)."""
+        self.request = request
 
     def add_fields(self, form, index):
         super().add_fields(form, index)
         form.empty_permitted = False
-        form.request = getattr(self, "request", None)
-        form.form_index = index
+        form.setRequestAndIndex(self.request, index)
         form.race = self.race
 
-        # 🧠 Force role field logic to re-run
         if self.race and self.race.requires_roles():
-            if "role" not in form.fields:
-                form.fields["role"] = forms.ModelChoiceField(
-                    queryset=self.race.get_allowed_roles(),
-                    required=True,
-                    label=_("Role"),
-                    help_text=_("Select the role this athlete will perform."),
-                )
+            allowed_roles = list(self.race.get_allowed_roles())
+
+            if allowed_roles:
+                # Add the field if not already present
+                if "role" not in form.fields:
+                    form.fields["role"] = ModelChoiceField(
+                        queryset=self.race.get_allowed_roles(),
+                        required=True,
+                        label=_("Role"),
+                        help_text=_("Select the role this athlete will perform."),
+                    )
+
+                # Preassign role based on form index
+                role_index = index % len(allowed_roles)
+                selected_role = allowed_roles[role_index]
+                form.initial["role"] = selected_role
+
+                # Ensure role is treated as submitted even if disabled
+                form.data = form.data.copy()
+                form.data[f"{form.prefix}-role"] = selected_role.pk
+
+                # Make field visually readonly
+                form.fields["role"].disabled = True
+                form.fields["role"].widget.attrs["readonly"] = True
+                form.fields["role"].widget.attrs["data-locked"] = "true"
 
     def clean(self):
-        """Validate number of participants and required roles."""
+        """Enforce minimum participants and required roles (if race type uses them)."""
         super().clean()
 
         if not self.race:
             return
 
-        # ✅ Get valid athlete forms (not marked for deletion, have changes)
-        filled_forms = [
+        valid_forms = [
             form
             for form in self.forms
             if form.has_changed() and not form.cleaned_data.get("DELETE", False)
         ]
 
-        # ✅ Print out all role values from cleaned_data
-        if settings.DEBUG:
-            print("📋 Checking roles in formset...")
-            for i, form in enumerate(filled_forms):
-                print(f"  → Form {i}: cleaned_data =", form.cleaned_data)
-                print(f"    → role =", form.cleaned_data.get("role"))
-
-        # Enforce required roles if race demands it
+        # 🔒 Role validation
         if self.race.requires_roles():
             required_roles = list(self.race.get_allowed_roles())
+            provided_roles = set()
 
-            # Check if role field is in cleaned_data and not None
-            provided_roles = {
-                form.cleaned_data.get("role")
-                for form in filled_forms
-                if "role" in form.cleaned_data
-                and form.cleaned_data.get("role") is not None
-            }
+            for form in valid_forms:
+                role = form.cleaned_data.get("role")
+                if not role:
+                    role = form.initial.get("role")
+                if role:
+                    provided_roles.add(role)
+
+            # ✅ Moved outside loop
+            print("👉 Required roles:", [str(r) for r in required_roles])
+            print(
+                "👉 Provided roles (cleaned or initial):",
+                [str(r) for r in provided_roles],
+            )
 
             missing_roles = [
                 role for role in required_roles if role not in provided_roles
             ]
 
             if missing_roles:
+                print("❌ Missing roles:", [str(r) for r in missing_roles])
                 raise ValidationError(
                     _("The following roles must be assigned: %(roles)s.")
-                    % {"roles": ", ".join(str(role) for role in missing_roles)}
+                    % {"roles": ", ".join(str(r) for r in missing_roles)}
                 )
 
-        # Enforce minimum participants
-        if self.race.race_type.min_participants:
-            if len(filled_forms) < self.race.race_type.min_participants:
-                raise ValidationError(
-                    _("This race requires at least %(min)d participants.")
-                    % {"min": self.race.race_type.min_participants}
-                )
+        # 🧮 Minimum participants
+        min_required = self.race.race_type.min_participants
+        if min_required and len(valid_forms) < min_required:
+            raise ValidationError(
+                _("This race requires at least %(min)d participants.")
+                % {"min": min_required}
+            )
 
 
 def athlete_formset_factory(race):

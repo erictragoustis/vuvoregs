@@ -1,6 +1,8 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% load crispy_forms_tags static dict_extras %}
-{% block title %}Register for {{ race.name }}{% endblock %}
+{% block title %}
+    Register for {{ race.name }}
+{% endblock title %}
 {% block css %}
     <link rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
@@ -47,7 +49,7 @@
         background-color: #fff0f0;
     }
     </style>
-{% endblock %}
+{% endblock css %}
 {% block content %}
     <h1 class="mb-4">
         Register for <strong>{{ race.name }}</strong> – {{ race.race_km }} KM
@@ -98,28 +100,37 @@
                             <div class="col-md-6">{{ form.dob|as_crispy_field }}</div>
                             <div class="col-md-6">{{ form.hometown|as_crispy_field }}</div>
                             <div class="col-md-6">{{ form.pickup_point|as_crispy_field }}</div>
-                            {% if form.fields.role %}<div class="col-md-6">{{ form.role|as_crispy_field }}</div>{% endif %}
+                            {% if 'role' in form.fields %}
+                                <div class="col-md-6">
+                                    {{ form.role|as_crispy_field }}
+                                    {% if form.fields.role.disabled %}
+                                        <small class="text-muted">This role is auto-assigned and cannot be changed.</small>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
                         </div>
                         {% if 'special_price' in form.fields %}<div class="mt-3">{{ form.special_price|as_crispy_field }}</div>{% endif %}
-                        <div class="d-none">{{ form.package|as_crispy_field }}</div>
-                        <label class="form-label mt-3">Select a Package</label>
-                        <div class="row gx-2 gy-2 package-card-group">
-                            {% with race.get_packages_with_prices as sorted_packages %}
-                                {% for data in sorted_packages %}
-                                    {% with pkg=data.package %}
-                                        <div class="col-md-6">
-                                            <div class="package-card {% if form.package.value == pkg.id|stringformat:'s' %}selected{% endif %}"
-                                                 data-package-id="{{ pkg.id }}">
-                                                <h6 class="fw-bold">{{ pkg.name }}</h6>
-                                                <p class="mb-1 small">{{ pkg.description|default:"No description" }}</p>
-                                                <p class="mb-0 fw-bold text-primary">Price: €{{ data.individual_price|floatformat:2 }}</p>
+                        {% with form.sortedPackages as sorted_packages %}
+                            {% if sorted_packages %}
+                                <div class="d-none">{{ form.package|as_crispy_field }}</div>
+                                <label class="form-label mt-3">Select a Package</label>
+                                <div class="row gx-2 gy-2 package-card-group">
+                                    {% for data in sorted_packages %}
+                                        {% with pkg=data.package %}
+                                            <div class="col-md-6">
+                                                <div class="package-card {% if form.package.value == pkg.id|stringformat:'s' %}selected{% endif %}"
+                                                     data-package-id="{{ pkg.id }}">
+                                                    <h6 class="fw-bold">{{ pkg.name }}</h6>
+                                                    <p class="mb-1 small">{{ pkg.description|default:"No description" }}</p>
+                                                    <p class="mb-0 fw-bold text-primary">Price: €{{ data.individual_price|floatformat:2 }}</p>
+                                                </div>
                                             </div>
-                                        </div>
-                                    {% endwith %}
-                                {% endfor %}
-                            {% endwith %}
-                        </div>
-                        <div class="package-options-container mt-3"></div>
+                                        {% endwith %}
+                                    {% endfor %}
+                                </div>
+                                <div class="package-options-container mt-3"></div>
+                            {% endif %}
+                        {% endwith %}
                     </div>
                 </div>
             {% endfor %}
@@ -151,247 +162,16 @@
             </button>
         </div>
     </form>
-{% endblock %}
+{% endblock content %}
 {% block js_footer %}
     <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const formsetPrefix = "athlete";
-        const minParticipants = {{ min_participants|default:1 }};
-        let formCount = parseInt("{{ formset.total_form_count }}");
-    
-        function bindPackageCards(container) {
-            const packageCards = container.querySelectorAll('.package-card');
-            const hiddenSelect = container.querySelector('select[name$="-package"]');
-            const optionsContainer = container.querySelector('.package-options-container');
-            const index = container.getAttribute('data-index');
-    
-            packageCards.forEach(card => {
-                const packageId = card.getAttribute('data-package-id');
-                card.addEventListener('click', () => {
-                    packageCards.forEach(c => c.classList.remove('selected'));
-                    card.classList.add('selected');
-                    hiddenSelect.value = packageId;
-    
-                    optionsContainer.innerHTML = '';
-    
-                    fetch(`/ajax/race/package/${packageId}/options/`)
-                        .then(res => res.json())
-                        .then(data => {
-                            data.package_options.forEach(option => {
-                                const label = document.createElement('label');
-                                label.textContent = option.name;
-                                label.classList.add('form-label');
-    
-                                const select = document.createElement('select');
-                                select.name = `athlete-${index}-option-${option.id}`;
-                                select.classList.add('form-select', 'mb-2');
-    
-                                const defaultOpt = document.createElement('option');
-                                defaultOpt.disabled = true;
-                                defaultOpt.selected = true;
-                                defaultOpt.textContent = "Select an option";
-                                select.appendChild(defaultOpt);
-    
-                                option.options_json.forEach(opt => {
-                                    const o = document.createElement('option');
-                                    o.value = opt;
-                                    o.textContent = opt;
-                                    select.appendChild(o);
-                                });
-    
-                                const hiddenInput = document.createElement('input');
-                                hiddenInput.type = 'hidden';
-                                hiddenInput.name = `athlete-${index}-option-${option.id}-name`;
-                                hiddenInput.value = option.name;
-    
-                                optionsContainer.appendChild(label);
-                                optionsContainer.appendChild(select);
-                                optionsContainer.appendChild(hiddenInput);
-                            });
-                        });
-                });
-            });
-    
-            const selectedPackageId = hiddenSelect.value;
-            const selectedCard = container.querySelector(`.package-card[data-package-id="${selectedPackageId}"]`);
-            if (selectedCard) {
-                selectedCard.classList.add('selected');
-                selectedCard.click();
-            }
-        }
-    
-        function addForm() {
-            const existingForm = document.querySelector('.athlete-form-card');
-            const minGroupSize = minParticipants;
-    
-            for (let i = 0; i < minGroupSize; i++) {
-                const newFormPrefix = formCount;
-                const newForm = existingForm.cloneNode(true);
-    
-                newForm.innerHTML = newForm.innerHTML
-                    .replaceAll(new RegExp(formsetPrefix + '-(\\d+)-', 'g'), `${formsetPrefix}-${newFormPrefix}-`)
-                    .replaceAll(new RegExp('id_' + formsetPrefix + '-(\\d+)-', 'g'), `id_${formsetPrefix}-${newFormPrefix}-`)
-                    .replaceAll(new RegExp('for="' + formsetPrefix + '-(\\d+)-', 'g'), `for="${formsetPrefix}-${newFormPrefix}-`);
-    
-                newForm.setAttribute('data-index', newFormPrefix);
-    
-                newForm.querySelectorAll('input, select, textarea').forEach(input => {
-                    if (!['hidden', 'csrfmiddlewaretoken'].includes(input.type)) {
-                        input.value = '';
-                        if (input.type === 'checkbox') input.checked = false;
-                    }
-                });
-    
-                newForm.querySelectorAll('.is-invalid').forEach(input => input.classList.remove('is-invalid'));
-                newForm.classList.remove('border-danger');
-                newForm.querySelectorAll('.invalid-feedback, .errorlist').forEach(el => el.remove());
-    
-                const removeBtn = newForm.querySelector('.remove-athlete');
-                if (removeBtn) {
-                    if (minParticipants === 1) {
-                        removeBtn.style.display = 'inline-block';
-                    } else {
-                        removeBtn.remove();
-                    }
-                }
-    
-                document.getElementById('athleteForms').appendChild(newForm);
-                newForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    
-                const header = newForm.querySelector('.card-header h5');
-                if (header) {
-                    const icon = header.querySelector('i');
-                    header.innerHTML = '';
-                    if (icon) header.appendChild(icon);
-                    header.append(` Athlete ${formCount + 1}`);
-                }
-    
-                bindPackageCards(newForm);
-                formCount++;
-            }
-    
-            document.getElementById(`id_${formsetPrefix}-TOTAL_FORMS`).value = formCount;
-            bindRemoveButtons();
-            // ✅ Show removeGroup button if enough forms
-            const removeGroupBtn = document.getElementById("removeGroup");
-            if (removeGroupBtn && formCount > minParticipants) {
-                const wrapper = document.getElementById("removeGroupWrapper");
-            if (wrapper && formCount > minParticipants) {
-                bootstrap.Collapse.getOrCreateInstance(wrapper).show();
-            }
-            }
-        }
-
-        function removeGroup() {
-            const groupSize = minParticipants;
-            const allCards = document.querySelectorAll('.athlete-form-card');
-
-            if (allCards.length <= groupSize) {
-                const alert = document.getElementById("minParticipantAlert");
-                const alertText = document.getElementById("minParticipantAlertText");
-                alertText.textContent = `You must keep at least ${groupSize} participant(s).`;
-                alert.classList.remove("d-none");
-                setTimeout(() => alert.classList.add("d-none"), 4000);
-                return;
-            }
-
-            // 🧹 Remove the last full group
-            for (let i = 0; i < groupSize; i++) {
-                const lastCard = document.querySelector('.athlete-form-card:last-of-type');
-                if (lastCard) lastCard.remove();
-            }
-
-            // 🧠 Re-index forms and update total count
-            const remainingCards = document.querySelectorAll('.athlete-form-card');
-            remainingCards.forEach((cardEl, newIndex) => {
-                cardEl.setAttribute('data-index', newIndex);
-
-                const header = cardEl.querySelector('.card-header h5');
-                if (header) {
-                    const icon = header.querySelector('i');
-                    header.innerHTML = '';
-                    if (icon) header.appendChild(icon);
-                    header.append(` Athlete ${newIndex + 1}`);
-                }
-
-                cardEl.querySelectorAll('[name], [id], label[for]').forEach(el => {
-                    ['name', 'id', 'for'].forEach(attr => {
-                        const val = el.getAttribute(attr);
-                        if (val && val.includes(`${formsetPrefix}-`)) {
-                            const updated = val.replace(new RegExp(`${formsetPrefix}-\\d+-`, 'g'), `${formsetPrefix}-${newIndex}-`);
-                            el.setAttribute(attr, updated);
-                        }
-                    });
-                });
-            });
-
-            formCount = remainingCards.length;
-            document.getElementById(`id_${formsetPrefix}-TOTAL_FORMS`).value = formCount;
-            // ✅ Hide removeGroup button if we're back to base
-            const removeGroupBtn = document.getElementById("removeGroup");
-            if (removeGroupBtn && formCount <= minParticipants) {
-                const wrapper = document.getElementById("removeGroupWrapper");
-                if (wrapper && formCount <= minParticipants) {
-                    bootstrap.Collapse.getOrCreateInstance(wrapper).hide();
-                }
-            }
-
-        }
-
-    
-        function bindRemoveButtons() {
-            document.querySelectorAll('.remove-athlete').forEach(button => {
-                button.onclick = function () {
-                    const card = this.closest('.athlete-form-card');
-                    const allCards = document.querySelectorAll('.athlete-form-card');
-    
-                    if (allCards.length <= minParticipants) {
-                        const alert = document.getElementById("minParticipantAlert");
-                        const alertText = document.getElementById("minParticipantAlertText");
-                        alertText.textContent = `This race requires at least ${minParticipants} participant(s). You can't remove more.`;
-                        alert.classList.remove("d-none");
-                        setTimeout(() => alert.classList.add("d-none"), 4000);
-                        return;
-                    }
-    
-                    card.remove();
-    
-                    const remainingCards = document.querySelectorAll('.athlete-form-card');
-                    remainingCards.forEach((cardEl, newIndex) => {
-                        cardEl.setAttribute('data-index', newIndex);
-    
-                        const header = cardEl.querySelector('.card-header h5');
-                        if (header) {
-                            const icon = header.querySelector('i');
-                            header.innerHTML = '';
-                            if (icon) header.appendChild(icon);
-                            header.append(` Athlete ${newIndex + 1}`);
-                        }
-    
-                        cardEl.querySelectorAll('[name], [id], label[for]').forEach(el => {
-                            ['name', 'id', 'for'].forEach(attr => {
-                                const val = el.getAttribute(attr);
-                                if (val && val.includes(`${formsetPrefix}-`)) {
-                                    const updated = val.replace(new RegExp(`${formsetPrefix}-\\d+-`, 'g'), `${formsetPrefix}-${newIndex}-`);
-                                    el.setAttribute(attr, updated);
-                                }
-                            });
-                        });
-                    });
-    
-                    formCount = remainingCards.length;
-                    document.getElementById(`id_${formsetPrefix}-TOTAL_FORMS`).value = formCount;
-                };
-            });
-        }
-    
-        document.querySelectorAll('.athlete-form-card').forEach(bindPackageCards);
-        bindRemoveButtons();
-        document.getElementById('addAthlete').addEventListener('click', addForm);
-        const removeGroupBtn = document.getElementById("removeGroup");
-        if (removeGroupBtn) {
-            removeGroupBtn.addEventListener("click", removeGroup);
-        }
-    });
+    window.MIN_PARTICIPANTS = {{ min_participants|default:1 }};
+    window.FORM_COUNT = {{ formset.total_form_count }};
+    window.availableRoles = [
+      {% for role in race.get_allowed_roles %}
+        { "id": {{ role.id }}, "name": "{{ role.name|escapejs }}" }{% if not forloop.last %},{% endif %}
+      {% endfor %}
+    ];
     </script>
-{% endblock %}
+    <script src="{% static 'event/js/registration.js' %}"></script>
+{% endblock js_footer %}
