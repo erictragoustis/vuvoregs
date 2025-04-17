@@ -59,6 +59,7 @@ class RaceAdmin(TranslationAdmin):
         "base_price_individual",
         "base_price_team",
         "image",
+        "pickup_date",
     )
     inlines = [TimeBasedPriceInline, RaceSpecialPriceInline]
 

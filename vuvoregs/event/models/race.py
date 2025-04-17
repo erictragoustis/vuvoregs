@@ -84,6 +84,12 @@ class Race(models.Model):
         blank=True,
         help_text=_("Minimum number of athletes for team pricing to apply."),
     )
+    pickup_date = models.DateField(
+        _("Pickup Date"),
+        null=True,
+        blank=True,
+        help_text=_("Optional override for this specific race."),
+    )
 
     objects = RaceManager()
 
@@ -183,6 +189,11 @@ class Race(models.Model):
             })
 
         return sorted(results, key=lambda p: p["individual_price"])
+
+    @property
+    def effective_pickup_date(self):
+        """Return race-specific pickup date if set, otherwise fallback to event's."""
+        return self.pickup_date or self.event.pickup_date
 
     @property
     def min_participants(self):

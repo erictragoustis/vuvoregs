@@ -115,7 +115,10 @@ def confirm_registration(request, registration_id):
     form = BillingForm(
         initial={"billing_email": athletes[0].email if athletes else ""},
     )
-
+    print("🧍 Athlete selected options:")
+    for a in registration.athletes.all():
+        print(a.selected_options)
+        print("pickup:", a.pickup_point)
     return render(
         request,
         "registration/confirm.html",

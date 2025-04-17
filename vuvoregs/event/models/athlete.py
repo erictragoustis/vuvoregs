@@ -11,6 +11,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from datetime import date
 
 
 class Athlete(models.Model):
@@ -126,6 +127,48 @@ class Athlete(models.Model):
             self.race.event.date - self.dob
         ).days // 365.25  # approximate in years
         return age_at_event < 18
+
+    @property
+    def age(self):
+        if not self.dob:
+            return None
+        today = date.today()
+        return (
+            today.year
+            - self.dob.year
+            - ((today.month, today.day) < (self.dob.month, self.dob.day))
+        )
+
+    @property
+    def age_on_event_day(self):
+        """Return athlete's age on the event date."""
+        if not self.dob or not self.registration or not self.registration.event:
+            return None
+
+        event_date = self.registration.event.date
+        return (
+            event_date.year
+            - self.dob.year
+            - ((event_date.month, event_date.day) < (self.dob.month, self.dob.day))
+        )
+
+    @property
+    def final_price(self):
+        """Return the fully calculated price this athlete pays.
+
+        This includes:
+        - event base price
+        - package adjustment
+        - any special price adjustments
+        - team discount if applicable
+        """
+        return self.registration.get_athlete_price(self)
+
+    @property
+    def get_base_price(self):
+        """Return the base price used for this athlete (individual/team)."""
+        is_team = self.registration.qualifies_for_team_discount(self.race)
+        return self.race.base_price_team if is_team else self.race.base_price_individual
 
     def get_total_price(self) -> Decimal:
         """Calculate and return the total price for the athlete's registration.
