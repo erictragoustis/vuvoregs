@@ -7,6 +7,7 @@ Handles:
 """
 
 import json
+import logging
 
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
@@ -89,6 +90,9 @@ def viva_payment_failure(request, transaction_id):
     return redirect("payment_failure", registration_id=registration.id)
 
 
+logger = logging.getLogger(__name__)
+
+
 @csrf_exempt
 def payment_webhook(request):
     """Viva Wallet webhook listener.
@@ -107,6 +111,9 @@ def payment_webhook(request):
     Returns:
         JsonResponse
     """
+    logger.debug("Received request body: %s", request.body)
+    if request.method == "GET":
+        return JsonResponse({"Key": settings.VIVA_WEBHOOK_VERIFICATION_KEY})
     try:
         payload = json.loads(request.body)
         event_type_id = payload.get("EventTypeId")
@@ -126,9 +133,9 @@ def payment_webhook(request):
         registration = getattr(payment, "registration", None)
 
         # Save transaction ID if not already present
-        if not payment.transaction_id:
-            payment.transaction_id = transaction_id
-            payment.save(update_fields=["transaction_id"])
+
+        payment.transaction_id = transaction_id
+        payment.save(update_fields=["transaction_id"])
 
         if event_type_id == 1796:  # Payment successful
             payment.status = PaymentStatus.CONFIRMED
@@ -147,10 +154,11 @@ def payment_webhook(request):
                 registration.status = "failed"
                 registration.payment_status = "failed"
                 registration.save(update_fields=["status", "payment_status"])
-
+        logger.debug("Parsed JSON payload: %s", payload)
         return JsonResponse({"status": "success"})
 
     except Exception as e:
+        logger.error("Error parsing JSON: %s", str(e))
         return JsonResponse(
             {"status": "error", "message": str(e)},
             status=500,

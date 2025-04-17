@@ -46,7 +46,9 @@ class AthleteForm(forms.ModelForm):
             "hometown",
             "package",
             "special_price",
+            "role",
         ]
+
         widgets = {
             "dob": forms.DateInput(
                 format="%Y-%m-%d",
@@ -66,6 +68,7 @@ class AthleteForm(forms.ModelForm):
             "hometown": _("Hometown"),
             "package": _("Package"),
             "special_price": _("Special Price"),
+            "role": _("Role"),
         }
 
     def __init__(self, *args, **kwargs):
@@ -198,10 +201,25 @@ class MinParticipantsFormSet(BaseInlineFormSet):
             if form.has_changed() and not form.cleaned_data.get("DELETE", False)
         ]
 
+        # ✅ Print out all role values from cleaned_data
+        if settings.DEBUG:
+            print("📋 Checking roles in formset...")
+            for i, form in enumerate(filled_forms):
+                print(f"  → Form {i}: cleaned_data =", form.cleaned_data)
+                print(f"    → role =", form.cleaned_data.get("role"))
+
         # Enforce required roles if race demands it
         if self.race.requires_roles():
             required_roles = list(self.race.get_allowed_roles())
-            provided_roles = {form.cleaned_data.get("role") for form in filled_forms}
+
+            # Check if role field is in cleaned_data and not None
+            provided_roles = {
+                form.cleaned_data.get("role")
+                for form in filled_forms
+                if "role" in form.cleaned_data
+                and form.cleaned_data.get("role") is not None
+            }
+
             missing_roles = [
                 role for role in required_roles if role not in provided_roles
             ]
@@ -211,14 +229,8 @@ class MinParticipantsFormSet(BaseInlineFormSet):
                     _("The following roles must be assigned: %(roles)s.")
                     % {"roles": ", ".join(str(role) for role in missing_roles)}
                 )
-            print("DEBUG filled forms:", filled_forms)
-            print(
-                "DEBUG cleaned roles:",
-                [f.cleaned_data.get("role") for f in filled_forms],
-            )
-            print("DEBUG all form errors:", [f.errors for f in self.forms])
 
-        #  Enforce total min participants (from race_type)
+        # Enforce minimum participants
         if self.race.race_type.min_participants:
             if len(filled_forms) < self.race.race_type.min_participants:
                 raise ValidationError(

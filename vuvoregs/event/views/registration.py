@@ -9,41 +9,63 @@ from event.forms import BillingForm, athlete_formset_factory
 from event.models import Race, Registration
 
 
+@require_http_methods(["GET", "POST"])
 def registration(request, race_id):
     """Display and process the multi-athlete registration form for a race."""
     race = get_object_or_404(Race, pk=race_id)
     event = race.event
 
-    # ❌ Block if registration is closed
     if not event.is_registration_open():
         return render(request, "registration/closed.html", {"event": event})
 
     AthleteFormSet = athlete_formset_factory(race)
 
+    formset_kwargs = {
+        "form_kwargs": {"race": race},
+        "prefix": "athlete",
+        "race": race,
+    }
+
     if request.method == "POST":
-        formset = AthleteFormSet(
-            data=request.POST,
-            form_kwargs={"race": race},
-            prefix="athlete",
-            race=race,
-        )
+        formset = AthleteFormSet(data=request.POST, **formset_kwargs)
         formset.request = request
 
         if formset.is_valid():
-            with transaction.atomic():
-                registration_instance = Registration.objects.create(event=event)
-                athletes = formset.save(commit=False)
+            try:
+                with transaction.atomic():
+                    registration = Registration.objects.create(event=event)
+                    athletes = formset.save(commit=False)
 
-                for athlete in athletes:
-                    athlete.registration = registration_instance
-                    athlete.race = race
-                    athlete.save()
+                    for athlete in athletes:
+                        if not athlete.package_id:
+                            messages.error(
+                                request, "Each athlete must have a package selected."
+                            )
+                            return render(
+                                request,
+                                "registration/registration.html",
+                                {
+                                    "race": race,
+                                    "formset": formset,
+                                    "min_participants": race.min_participants or 1,
+                                },
+                            )
 
-                registration_instance.update_total_amount()
+                        athlete.registration = registration
+                        athlete.race = race
+                        athlete.save()
 
-                return redirect(
-                    "confirm_registration", registration_id=registration_instance.id
+                    registration.update_total_amount()
+
+                    return redirect(
+                        "confirm_registration", registration_id=registration.id
+                    )
+            except Exception as e:
+                messages.error(
+                    request,
+                    f"Oops! Something went wrong during registration: {e}",
                 )
+                return redirect(request.path)
         else:
             valid_forms = sum(
                 1 for form in formset if form.is_valid() and form.has_changed()
@@ -51,15 +73,11 @@ def registration(request, race_id):
             if race.min_participants and valid_forms < race.min_participants:
                 messages.warning(
                     request,
-                    f"This race requires at least {race.min_participants} participants."
-                    f"Please complete at least {race.min_participants} athlete forms.",
+                    f"This race requires at least {race.min_participants} participants.",
                 )
+
     else:
-        formset = AthleteFormSet(
-            form_kwargs={"race": race},
-            prefix="athlete",
-            race=race,
-        )
+        formset = AthleteFormSet(**formset_kwargs)
         formset.request = request
 
     return render(

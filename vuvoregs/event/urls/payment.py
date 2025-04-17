@@ -14,7 +14,6 @@ from event.views import (
     check_transaction_status,
     payment_failure,
     payment_success,
-    payment_webhook,
     viva_payment_failure,
     viva_payment_success,
     viva_success_redirect_handler,
@@ -29,9 +28,6 @@ urlpatterns = [
     ),
     # Standard django-payments URLs (e.g. success, cancel, error hooks)
     path("payments/", include("payments.urls")),
-    # Webhook endpoint (used by Viva to confirm status asynchronously)
-    path("payments/webhook/", payment_webhook, name="payment_webhook"),
-    # Payment flow success/failure via registration ID
     path(
         "payment/<int:registration_id>/success/",
         payment_success,

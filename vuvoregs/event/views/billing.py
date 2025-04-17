@@ -69,6 +69,10 @@ def create_payment(request, registration_id):
         - On error → confirm_registration
     """
     registration = get_object_or_404(Registration, pk=registration_id)
+    if registration.total_amount == 0:
+        registration.mark_paid()
+        messages.success(request, "Your free registration is complete.")
+        return redirect("payment_success", registration_id=registration.id)
 
     # 🔒 Ensure agreement to T&Cs (also checked in confirm view)
     if request.POST.get("agrees_to_terms") != "on":

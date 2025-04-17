@@ -1,9 +1,10 @@
 from django.http import HttpResponse
 from django.urls import reverse
 import requests
-
+import logging
 from payments import PaymentStatus, RedirectNeeded
 from payments.core import BasicProvider
+import json
 
 
 class VivaSmartCheckoutProvider(BasicProvider):
@@ -53,7 +54,9 @@ class VivaSmartCheckoutProvider(BasicProvider):
         return response.json()["access_token"]
 
     def create_order(self, payment):
+        logger = logging.getLogger(__name__)
         """Step 2: Create the payment order and get orderCode."""
+
         token = self.get_token()
         headers = {
             "Authorization": f"Bearer {token}",
@@ -81,8 +84,12 @@ class VivaSmartCheckoutProvider(BasicProvider):
             else "https://api.vivapayments.com/checkout/v2/orders"
         )
         response = requests.post(url, json=data, headers=headers)
+        if not response.ok:
+            print("❌ Viva order error:", response.text)  # ✅ SHOW the actual error
+            response.raise_for_status()
         response.raise_for_status()
         print("📦 Viva order response:", response.json())  # ✅ Add this here
+
         return response.json()["orderCode"]
 
     def get_redirect_url(self, payment):

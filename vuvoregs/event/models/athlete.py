@@ -68,6 +68,14 @@ class Athlete(models.Model):
         verbose_name=_("Pickup Point"),
     )
 
+    role = models.ForeignKey(
+        "event.RaceRole",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text=_("The athlete's assigned role (e.g., Runner, Cyclist)"),
+    )
+
     registration_date = models.DateTimeField(
         auto_now_add=True, verbose_name=_("Registration Date")
     )
@@ -90,7 +98,10 @@ class Athlete(models.Model):
 
     def __str__(self) -> str:
         """Return a string representation of the athlete."""
-        return f"{self.first_name} {self.last_name} – {self.race.race_type.name}"
+        try:
+            return f"{self.first_name} {self.last_name} – {self.race.race_type.name}"
+        except Exception:
+            return f"{self.first_name} {self.last_name}"
 
     def save(self, *args, **kwargs) -> None:
         """Ensure selected options are a valid JSON dict before saving."""
@@ -148,8 +159,10 @@ class Athlete(models.Model):
         if not isinstance(self.selected_options, dict):
             raise ValidationError(_("Package options must be a dictionary."))
 
-        if not self.package:
-            return  # nothing to validate without a package
+        try:
+            package = self.package
+        except models.ObjectDoesNotExist:
+            return  # No valid package yet — skip validation
 
         # 🔍 Check for missing required options
         required_options = [opt.name for opt in self.package.packageoption_set.all()]

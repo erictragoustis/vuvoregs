@@ -113,10 +113,23 @@ class Registration(models.Model):
         return self.payment_status == "paid"
 
     def mark_paid(self) -> None:
-        """Set the registration as paid."""
+        """Set the registration as paid and completed. Also sets agreed T&Cs if available."""
         self.payment_status = "paid"
         self.status = "completed"
-        self.save(update_fields=["payment_status", "status"])
+
+        # Automatically accept terms if available
+        if self.event and hasattr(self.event, "terms"):
+            self.agrees_to_terms = True
+            self.agreed_to_terms = self.event.terms
+
+        self.save(
+            update_fields=[
+                "payment_status",
+                "status",
+                "agrees_to_terms",
+                "agreed_to_terms",
+            ]
+        )
 
     def mark_failed(self) -> None:
         """Set the registration status as failed."""
