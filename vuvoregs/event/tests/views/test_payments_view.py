@@ -40,8 +40,12 @@ def test_payment_failure_view(client):
 @pytest.mark.django_db
 def test_create_payment_redirects_if_terms_not_agreed(client):
     registration = RegistrationFactory()
+    registration.total_amount = 10
+    registration.save(update_fields=["total_amount"])
+
     url = reverse("create_payment", args=[registration.id])
     response = client.post(url, data={"agrees_to_terms": "off"})
+
     assert response.status_code == 302
     assert reverse("confirm_registration", args=[registration.id]) in response.url
 
@@ -49,9 +53,13 @@ def test_create_payment_redirects_if_terms_not_agreed(client):
 @pytest.mark.django_db
 def test_create_payment_redirects_if_already_paid(client):
     registration = RegistrationFactory()
+    registration.total_amount = 10
+    registration.save(update_fields=["total_amount"])
+
     payment = PaymentFactory()
     registration.payment = payment
     registration.save(update_fields=["payment"])
+
     TermsAndConditionsFactory(event=registration.event)
     url = reverse("create_payment", args=[registration.id])
 
@@ -60,13 +68,17 @@ def test_create_payment_redirects_if_already_paid(client):
         side_effect=RedirectNeeded("/redirect-me"),
     ):
         response = client.post(url, data={"agrees_to_terms": "on"})
-        assert response.status_code == 302
-        assert response.url == "/redirect-me"
+
+    assert response.status_code == 302
+    assert response.url == "/redirect-me"
 
 
 @pytest.mark.django_db
 def test_create_payment_success_redirect(client):
     registration = RegistrationFactory(payment=None)
+    registration.total_amount = 10
+    registration.save(update_fields=["total_amount"])
+
     TermsAndConditionsFactory(event=registration.event)
     country = CountryFactory()
     region = RegionFactory(country=country)
@@ -91,13 +103,17 @@ def test_create_payment_success_redirect(client):
         "event.models.payment.Payment.get_form", side_effect=RedirectNeeded("/to-viva")
     ):
         response = client.post(url, data=data)
-        assert response.status_code == 302
-        assert response.url == "/to-viva"
+
+    assert response.status_code == 302
+    assert response.url == "/to-viva"
 
 
 @pytest.mark.django_db
 def test_create_payment_handles_http_error(client):
     registration = RegistrationFactory(payment=None)
+    registration.total_amount = 10
+    registration.save(update_fields=["total_amount"])
+
     TermsAndConditionsFactory(event=registration.event)
     country = CountryFactory()
     region = RegionFactory(country=country)
@@ -122,13 +138,17 @@ def test_create_payment_handles_http_error(client):
         "event.models.payment.Payment.get_form", side_effect=HTTPError("Viva error")
     ):
         response = client.post(url, data=data)
-        assert response.status_code == 302
-        assert reverse("confirm_registration", args=[registration.id]) in response.url
+
+    assert response.status_code == 302
+    assert reverse("confirm_registration", args=[registration.id]) in response.url
 
 
 @pytest.mark.django_db
 def test_create_payment_handles_generic_exception(client):
     registration = RegistrationFactory(payment=None)
+    registration.total_amount = 10
+    registration.save(update_fields=["total_amount"])
+
     TermsAndConditionsFactory(event=registration.event)
     country = CountryFactory()
     region = RegionFactory(country=country)
@@ -154,8 +174,9 @@ def test_create_payment_handles_generic_exception(client):
         side_effect=Exception("Unexpected error"),
     ):
         response = client.post(url, data=data)
-        assert response.status_code == 302
-        assert reverse("confirm_registration", args=[registration.id]) in response.url
+
+    assert response.status_code == 302
+    assert reverse("confirm_registration", args=[registration.id]) in response.url
 
 
 @pytest.mark.django_db

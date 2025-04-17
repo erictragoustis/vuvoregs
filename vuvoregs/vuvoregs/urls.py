@@ -33,8 +33,6 @@ Including another URLconf
 
 urlpatterns = [
     path("payments/webhook/", payment_webhook, name="payment_webhook"),
-    path("en/payments/webhook/", payment_webhook),  # For Viva default locale
-    path("el/payments/webhook/", payment_webhook),  # Optional
     path("i18n/", include("django.conf.urls.i18n")),
 ]
 

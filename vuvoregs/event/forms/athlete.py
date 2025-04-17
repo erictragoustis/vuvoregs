@@ -157,27 +157,25 @@ class AthleteForm(forms.ModelForm):
 
         if self.request and self.formIndex is not None:
             selected_options = {}
-            prefix = "athlete"
-            index = self.formIndex
+            prefix = self.prefix
+            if prefix:
+                for key in self.data:
+                    if key.startswith(f"{prefix}-option-") and not key.endswith(
+                        "-name"
+                    ):
+                        option_id = key.split(f"{prefix}-option-")[-1]
+                        name_key = f"{key}-name"
+                        option_name = self.data.get(name_key, f"Option {option_id}")
+                        values = self.data.getlist(key)
 
-            for key in self.request.POST:
-                if key.startswith(f"{prefix}-{index}-option-") and not key.endswith(
-                    "-name"
-                ):
-                    option_id = key.split(f"{prefix}-{index}-option-")[-1]
-                    option_name_key = f"{key}-name"
-                    option_name = self.request.POST.get(
-                        option_name_key, f"Option {option_id}"
-                    )
-                    values = self.request.POST.getlist(key)
+                        if values and any(v.strip() for v in values):
+                            selected_options[option_name] = values
 
-                    if values and any(v.strip() for v in values):
-                        selected_options[option_name] = values
-
+            self.instance.selected_options = selected_options or {}
             self.instance.role = self.cleaned_data.get("role") or self.initial.get(
                 "role"
             )
-
+        print("💾 selected_options =", self.instance.selected_options)
         return cleaned_data
 
 
