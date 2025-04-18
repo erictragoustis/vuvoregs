@@ -41,6 +41,7 @@ urlpatterns += i18n_patterns(
     path("dashboard/", include("dashboard.urls", namespace="dashboard")),
     path("tools/", include("event.urls_admin", namespace="event_admin")),
     path("", include("event.urls")),
+    path("ajax/", include("event.urls.ajax", namespace="ajax")),
     path("accounts/", include("allauth.urls")),
 )
 

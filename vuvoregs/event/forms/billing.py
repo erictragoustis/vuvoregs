@@ -9,6 +9,7 @@ Includes:
 
 from cities_light.models import City, Country, Region
 from django import forms
+from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
 
@@ -66,3 +67,31 @@ class BillingForm(forms.Form):
     billing_email = forms.EmailField(
         label=_("Email Address"),
     )
+
+    def __init__(self, *args, **kwargs):
+        registration = kwargs.pop("registration", None)
+        super().__init__(*args, **kwargs)
+
+        # Prepopulate regions and cities if country/region are set
+        if registration and registration.billing_country:
+            self.fields["billing_region"].queryset = Region.objects.filter(
+                country=registration.billing_country
+            )
+        if registration and registration.billing_region:
+            self.fields["billing_city"].queryset = City.objects.filter(
+                region=registration.billing_region
+            )
+
+        self.fields["billing_country"].widget.attrs.update({
+            "hx-get": reverse("ajax:ajax_load_regions"),
+            "hx-target": "#billing-region-wrapper",
+            "hx-include": "[name='billing_country']",
+            "hx-trigger": "change",
+        })
+
+        self.fields["billing_region"].widget.attrs.update({
+            "hx-get": reverse("ajax:ajax_load_cities"),
+            "hx-target": "#billing-city-wrapper",
+            "hx-include": "[name='billing_region']",
+            "hx-trigger": "change",
+        })

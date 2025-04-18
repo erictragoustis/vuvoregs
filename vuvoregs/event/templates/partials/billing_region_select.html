@@ -1,0 +1,11 @@
+{% load i18n %}
+<select name="billing_region"
+        id="billing-region"
+        class="form-select"
+        hx-get="{% url 'ajax:ajax_load_cities' %}"
+        hx-target="#billing-city-wrapper"
+        hx-trigger="change"
+        hx-swap="outerHTML">
+    <option value="">{% trans "Select Region" %}</option>
+    {% for region in regions %}<option value="{{ region.id }}">{{ region.name }}</option>{% endfor %}
+</select>

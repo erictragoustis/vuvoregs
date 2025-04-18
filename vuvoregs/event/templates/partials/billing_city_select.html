@@ -1,0 +1,5 @@
+{% load i18n %}
+<select name="billing_city" id="billing-city" class="form-select">
+    <option value="">{% trans "Select City" %}</option>
+    {% for city in cities %}<option value="{{ city.id }}">{{ city.name }}</option>{% endfor %}
+</select>
