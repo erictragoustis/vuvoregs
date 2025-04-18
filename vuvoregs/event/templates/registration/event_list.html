@@ -34,39 +34,43 @@
 {% endblock %}
 {% block js_footer %}
     <script>
-document.addEventListener("DOMContentLoaded", function () {
-    const countdowns = document.querySelectorAll(".countdown");
+function activateCountdowns() {
+  document.querySelectorAll(".countdown").forEach(el => {
+    const end = new Date(el.dataset.end);
 
-    countdowns.forEach(el => {
-        const endDate = new Date(el.dataset.end);
+    function update() {
+      const now = new Date();
+      const diff = end - now;
 
-        function updateCountdown() {
-            const now = new Date();
-            const diff = endDate - now;
+      if (diff <= 0) {
+        el.classList.replace("bg-danger", "bg-secondary");
+        el.innerHTML = `<i class="fa-solid fa-clock me-1"></i> Registration Closed`;
+        return;
+      }
 
-            if (diff <= 0) {
-                el.innerText = "Registration Closed";
-                el.classList.remove("text-danger");
-                el.classList.add("text-muted");
-                return;
-            }
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((diff / (1000 * 60)) % 60);
+      const seconds = Math.floor((diff / 1000) % 60);
 
-            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-            const minutes = Math.floor((diff / (1000 * 60)) % 60);
-            const seconds = Math.floor((diff / 1000) % 60);
+      el.innerHTML = `
+         ${days}d ${hours}h ${minutes}m ${seconds}s
+      `;
+    }
 
-            el.innerText = `${days}d ${hours}h ${minutes}m ${seconds}s`;
-        }
+    update();
+    setInterval(update, 1000);
+  });
+}
 
-        updateCountdown();
-        setInterval(updateCountdown, 1000);
-    });
+// When DOM loads
+document.addEventListener("DOMContentLoaded", activateCountdowns);
 
-    // Enable all tooltips
-    document.querySelectorAll('[title]').forEach(el => {
-        new bootstrap.Tooltip(el);
-    });
+// When HTMX swaps in new content
+document.body.addEventListener("htmx:afterSwap", function (evt) {
+  if (evt.detail.target.id === "event-cards") {
+    activateCountdowns();
+  }
 });
     </script>
 {% endblock %}

@@ -70,3 +70,9 @@ def countdown_timer_partial(request, event_id):
         "registration/partials/countdown_timer.html",
         {"event": event, "days": days, "hours": hours, "minutes": minutes},
     )
+
+
+def race_cards_partial(request, event_id):
+    event = get_object_or_404(Event, pk=event_id)
+    races = event.races.all()
+    return render(request, "registration/partials/race_cards.html", {"races": races})

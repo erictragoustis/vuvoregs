@@ -37,14 +37,14 @@
                                 <i class="fa-solid fa-user-group me-2 text-primary"></i>
                                 <span>{{ event.paid_athlete_count }} {% trans "registered" %}</span>
                             </div>
-                            <div id="countdown-{{ event.id }}"
-                                 hx-get="{% url 'event:htmx_countdown' event.id %}"
-                                 hx-swap="outerHTML"
-                                 hx-trigger="load, every 60s"
-                                 hx-target="this"
-                                 class="text-danger small">
-                                <span class="text-muted">{% trans "Loading countdown..." %}</span>
-                            </div>
+                            {% if event.registration_end_date %}
+                                <p class="text-danger mt-2 mb-0">
+                                    <i class="fa-solid fa-clock fa-spin me-1"></i>
+                                    <strong>Closes in:</strong>
+                                    <span class="countdown"
+                                          data-end="{{ event.registration_end_date|date:'c' }}"></span>
+                                </p>
+                            {% endif %}
                         </div>
                     </div>
                     <a href="{% url 'event:race_list' event.id %}"
