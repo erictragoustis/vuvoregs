@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Available Events{% endblock %}
+{% block css %}
+    {% load i18n %}
+    <!-- Font Awesome (Free CDN) -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+          integrity="sha512-sJQHQFrss3zq6aOv74U4UUbERL0j6C8vq+JGUSp8VEyA6mwGgbGzCm3hCmqKtB/j9Z3hPb0akKxozMOqwHnYOw=="
+          crossorigin="anonymous"
+          referrerpolicy="no-referrer" />
+    <style>
+.event-card {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    transition: background-color 0.2s ease;
+}
+.countdown {
+    font-weight: 600;
+}
+    </style>
+{% endblock %}
+{% block content %}
+    <h1 class="mb-4">{% trans "Upcoming Events" %}</h1>
+    {% if events %}
+        <div class="row">
+            {% for event in events %}
+                {% if event.is_registration_open %}
+                    <div class="col-md-4 mb-4">
+                        <div class="card h-100 shadow-sm event-card position-relative">
+                            <!-- 🖼 Image or fallback -->
+                            <div class="position-relative overflow-hidden">
+                                {% if event.image %}
+                                    <img src="{{ event.image.url }}"
+                                         class="card-img-top"
+                                         alt="{{ event.name }}"
+                                         loading="lazy">
+                                {% else %}
+                                    <div class="card-img-top bg-secondary d-flex align-items-center justify-content-center text-white"
+                                         style="height: 400px">
+                                        <span class="fw-bold">{{ event.name }}</span>
+                                    </div>
+                                {% endif %}
+                                <span class="badge position-absolute top-0 start-0 m-2 px-3 py-2 bg-success">Registration Open</span>
+                            </div>
+                            <!-- 📄 Info section -->
+                            <div class="card-body d-flex flex-column">
+                                <h5 class="card-title">{{ event.name }}</h5>
+                                <!-- Mobile: collapsible info -->
+                                <button class="btn btn-sm btn-outline-secondary d-md-none mb-3"
+                                        type="button"
+                                        data-bs-toggle="collapse"
+                                        data-bs-target="#event-details-{{ event.id }}">
+                                    <i class="fa-solid fa-chevron-down me-1"></i> {% trans "Show Details" %}
+                                </button>
+                                <!-- Collapsible content -->
+                                <div class="collapse d-md-block" id="event-details-{{ event.id }}">
+                                    <div class="text-muted small mb-2">
+                                        <div class="d-flex align-items-center mb-1">
+                                            <i class="fa-regular fa-calendar-days me-2 text-primary"></i>
+                                            <span>{{ event.date|date:"F j, Y" }}</span>
+                                        </div>
+                                        <div class="d-flex align-items-center mb-1">
+                                            <i class="fa-solid fa-location-dot me-2 text-primary"></i>
+                                            <span>{{ event.location }}</span>
+                                        </div>
+                                        <div class="d-flex align-items-center mb-1">
+                                            <i class="fa-solid fa-flag-checkered me-2 text-primary"></i>
+                                            <span>{{ event.races.count }} races</span>
+                                        </div>
+                                        <div class="d-flex align-items-center mb-1">
+                                            <i class="fa-solid fa-user-group me-2 text-primary"></i>
+                                            <span>{{ event.paid_athlete_count }} registered</span>
+                                        </div>
+                                        {% if event.registration_end_date %}
+                                            <p class="text-danger mt-2 mb-0">
+                                                <i class="fa-solid fa-clock fa-spin me-1"></i>
+                                                <strong>Closes in:</strong>
+                                                <span class="countdown"
+                                                      data-end="{{ event.registration_end_date|date:'c' }}"></span>
+                                            </p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <!-- Call to action -->
+                                <a href="{% url 'race_list' event.id %}"
+                                   class="btn btn-outline-primary mt-auto">{% trans "View Races" %}</a>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info">{% trans "No upcoming events at the moment." %}</div>
+    {% endif %}
+{% endblock %}
+{% block js_footer %}
+    <script>
+document.addEventListener("DOMContentLoaded", function () {
+    const countdowns = document.querySelectorAll(".countdown");
+
+    countdowns.forEach(el => {
+        const endDate = new Date(el.dataset.end);
+
+        function updateCountdown() {
+            const now = new Date();
+            const diff = endDate - now;
+
+            if (diff <= 0) {
+                el.innerText = "Registration Closed";
+                el.classList.remove("text-danger");
+                el.classList.add("text-muted");
+                return;
+            }
+
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+            const minutes = Math.floor((diff / (1000 * 60)) % 60);
+            const seconds = Math.floor((diff / 1000) % 60);
+
+            el.innerText = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+        }
+
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
+    });
+
+    // Enable all tooltips
+    document.querySelectorAll('[title]').forEach(el => {
+        new bootstrap.Tooltip(el);
+    });
+});
+    </script>
+{% endblock %}

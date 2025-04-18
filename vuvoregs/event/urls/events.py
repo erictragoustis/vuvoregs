@@ -8,6 +8,9 @@ Includes routes for:
 from django.urls import path
 
 from event.views import event_list, race_list
+from event.views.events import countdown_timer_partial, event_list_partial
+
+app_name = "event"
 
 urlpatterns = [
     path(
@@ -19,5 +22,9 @@ urlpatterns = [
         "event/<int:event_id>/races/",
         race_list,
         name="race_list",
+    ),
+    path("htmx/events/", event_list_partial, name="htmx_event_list"),
+    path(
+        "htmx/countdown/<int:event_id>/", countdown_timer_partial, name="htmx_countdown"
     ),
 ]

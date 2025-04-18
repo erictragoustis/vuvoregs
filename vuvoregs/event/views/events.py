@@ -1,6 +1,7 @@
 """Public views for listing events and races available for registration."""
 
 from django.shortcuts import get_object_or_404, render
+from django.utils import timezone
 
 from event.models import Event, Race
 
@@ -43,4 +44,29 @@ def race_list(request, event_id):
             "event": event,
             "races": races,
         },
+    )
+
+
+def event_list_partial(request):
+    """HTMX view to return the event cards only (used for dynamic refresh)."""
+    events = Event.objects.order_by("date")
+    return render(request, "registration/partials/event_cards.html", {"events": events})
+
+
+def countdown_timer_partial(request, event_id):
+    event = get_object_or_404(Event, pk=event_id)
+    now = timezone.now()
+    remaining = event.registration_end_date - now
+
+    if remaining.total_seconds() > 0:
+        days = remaining.days
+        hours, remainder = divmod(remaining.seconds, 3600)
+        minutes, _ = divmod(remainder, 60)
+    else:
+        days = hours = minutes = 0
+
+    return render(
+        request,
+        "registration/partials/countdown_timer.html",
+        {"event": event, "days": days, "hours": hours, "minutes": minutes},
     )
