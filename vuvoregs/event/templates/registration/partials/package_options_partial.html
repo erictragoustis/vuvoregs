@@ -1,0 +1,11 @@
+{% load i18n %}
+{% for option in package.packageoption_set.all %}
+    <label class="form-label">{{ option.name }}</label>
+    <select name="{{ prefix }}-option-{{ option.id }}" class="form-select mb-2">
+        <option disabled selected>{% trans "Select an option" %}</option>
+        {% for choice in option.options_json %}<option value="{{ choice }}">{{ choice }}</option>{% endfor %}
+    </select>
+    <input type="hidden"
+           name="{{ prefix }}-option-{{ option.id }}-name"
+           value="{{ option.name }}">
+{% endfor %}

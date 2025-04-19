@@ -1,23 +1,13 @@
-"""Management command to seed the database with mock event.
-
-Race, and athlete registration data.
-"""
-
-# Standard library imports
 from datetime import datetime, timedelta
 from decimal import Decimal
 import json
 import random
 
-# Django imports
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
-from django.utils.timezone import make_aware
-
-# Third-party imports
+from django.utils.timezone import make_aware, now
 from faker import Faker
 
-# Local app imports
 from event.models import (
     Athlete,
     Event,
@@ -26,72 +16,79 @@ from event.models import (
     PickUpPoint,
     Race,
     RacePackage,
+    RaceRole,
+    RaceSpecialPrice,
     RaceType,
     Registration,
     TermsAndConditions,
+    TimeBasedPrice,
 )
 
 
 class Command(BaseCommand):
-    """Management command to seed the database with mock event data."""
-
-    help = "Seed events, races, packages, and athletes"
+    help = "Seed events, races, packages, and athletes with realistic data."
 
     def add_arguments(self, parser):
-        """Add custom arguments to the management command.
-
-        Parameters
-        ----------
-        parser : ArgumentParser
-            The argument parser to which custom arguments are added.
-        """
         parser.add_argument(
             "--debug",
             action="store_true",
-            help="Seed only one event and five athletes per race",
+            help="Seed only 1 event and 5 athletes per race.",
         )
 
-    def handle(self, *args, **kwargs):
-        debug_mode = kwargs.get("debug", False)
+    def handle(self, *args, **options):
+        debug = options["debug"]
         fake = Faker()
         User = get_user_model()
 
-        # 🧹 Clear all relevant data
-        self.stdout.write(self.style.WARNING("Clearing previous data..."))
-        Payment.objects.all().delete()
-        Athlete.objects.all().delete()
-        Registration.objects.all().delete()
-        PackageOption.objects.all().delete()
-        RacePackage.objects.all().delete()
-        Race.objects.all().delete()
-        TermsAndConditions.objects.all().delete()
-        PickUpPoint.objects.all().delete()
-        Event.objects.all().delete()
+        self.stdout.write(self.style.WARNING("🧹 Clearing existing data..."))
+        models_to_clear = [
+            Athlete,
+            Registration,
+            Payment,
+            PackageOption,
+            RacePackage,
+            Race,
+            TermsAndConditions,
+            PickUpPoint,
+            Event,
+            RaceSpecialPrice,
+            TimeBasedPrice,
+        ]
+        for model in models_to_clear:
+            model.objects.all().delete()
 
+        # Create default race types & roles
         if RaceType.objects.count() == 0:
-            for name in ["Fun Run", "Marathon", "Relay"]:
-                RaceType.objects.create(name=name)
+            runner = RaceRole.objects.get_or_create(name="Runner")[0]
+            cyclist = RaceRole.objects.get_or_create(name="Cyclist")[0]
+            RaceType.objects.create(name="Fun Run")
+            rt = RaceType.objects.create(name="Duathlon", min_participants=2)
+            rt.roles.set([runner, cyclist])
 
-        staff_users = list(User.objects.filter(is_staff=True))
-        if not staff_users:
-            self.stdout.write(self.style.ERROR("No staff users found."))
+        staff_users = User.objects.filter(is_staff=True)
+        if not staff_users.exists():
+            self.stdout.write(self.style.ERROR("❌ No staff users found."))
             return
 
-        event_count = 1 if debug_mode else random.randint(2, 6)
+        event_count = 1 if debug else random.randint(2, 5)
 
         for _ in range(event_count):
             organizer = random.choice(staff_users)
             event = Event.objects.create(
-                name=f"{fake.city()} Marathon {datetime.now().year}",
+                name=f"{fake.city()} Run {datetime.now().year}",
                 location=fake.city(),
-                date=fake.date_between(start_date="+1d", end_date="+6M"),
+                date=fake.date_between(start_date="+10d", end_date="+60d"),
                 organizer=organizer,
                 is_available=True,
-                registration_start_date=make_aware(datetime.now()),
-                registration_end_date=make_aware(datetime.now() + timedelta(days=90)),
+                registration_start_date=make_aware(datetime.now() - timedelta(days=60)),
+                registration_end_date=make_aware(datetime.now() + timedelta(days=60)),
             )
 
-            pickups = [
+            TermsAndConditions.objects.create(
+                event=event, content="Standard race terms apply.", version="1.0"
+            )
+
+            pickup_points = [
                 PickUpPoint.objects.create(
                     event=event,
                     name=fake.company(),
@@ -101,131 +98,135 @@ class Command(BaseCommand):
                 for _ in range(random.randint(2, 4))
             ]
 
-            terms = TermsAndConditions.objects.create(
-                event=event,
-                title=f"T&Cs for {event.name}",
-                content="Sample terms.",
-                version="1.0",
-            )
-
-            races = [
-                Race.objects.create(
+            races = []
+            for _ in range(random.randint(2, 5)):
+                race_type = random.choice(RaceType.objects.all())
+                race = Race.objects.create(
                     event=event,
-                    name=f"{fake.word().capitalize()} Sprint",
-                    race_km=random.choice([5, 10, 21]),
-                    min_participants=random.randint(1, 3),
-                    race_type=RaceType.objects.order_by("?").first(),
+                    name=f"{fake.word().capitalize()} Dash",
+                    race_type=race_type,
+                    race_km=random.choice([5.0, 10.0, 21.1]),
+                    base_price_individual=random.randint(20, 40),
+                    base_price_team=random.randint(15, 30),
+                    team_discount_threshold=random.choice([None, 3, 5]),
                 )
-                for _ in range(random.randint(1, 6))
-            ]
+                races.append(race)
 
-            packages = []
-            assigned_races = set()
-            for _ in range(random.randint(1, 3)):
-                package = RacePackage.objects.create(
-                    event=event,
-                    name=fake.color_name() + " Package",
-                    price=random.randint(20, 120),
-                    description=fake.sentence(),
+                # Time-based prices
+                start = now()
+                TimeBasedPrice.objects.create(
+                    race=race,
+                    label="Early Bird",
+                    start_date=start - timedelta(days=10),
+                    end_date=start + timedelta(days=10),
+                    price_adjustment=Decimal("-5.00"),
                 )
-                assigned_to = random.sample(
-                    races, k=random.randint(1, min(3, len(races)))
+                TimeBasedPrice.objects.create(
+                    race=race,
+                    label="Late Fee",
+                    start_date=start + timedelta(days=30),
+                    end_date=start + timedelta(days=90),
+                    price_adjustment=Decimal("5.00"),
                 )
-                package.races.set(assigned_to)
-                assigned_races.update(r.id for r in assigned_to)
-                packages.append(package)
 
-                for _ in range(random.randint(1, 3)):
-                    choices = [
-                        fake.word().capitalize() for _ in range(random.randint(3, 5))
-                    ]
-                    PackageOption.objects.create(
-                        package=package,
-                        name=fake.word().capitalize() + " Option",
-                        options_json=choices,
-                        options_string=", ".join(choices),
+                # Special prices
+                for _ in range(1):
+                    RaceSpecialPrice.objects.create(
+                        race=race,
+                        name=fake.word().capitalize() + " Discount",
+                        label="Local Citizen",
+                        description="Discount for residents or students",
+                        discount_amount=random.choice([5, 10]),
                     )
 
-            # 🔁 Ensure all races have at least one package assigned
+                # Packages
+                for _ in range(random.randint(1, 3)):
+                    pkg = RacePackage.objects.create(
+                        event=event,
+                        race=race,
+                        name=fake.color_name() + " Package",
+                        description="Includes bib and chip",
+                        price_adjustment=random.choice([0, 5, 10]),
+                    )
+
+                    for _ in range(random.randint(1, 2)):
+                        options = ["XS", "S", "M", "L", "XL"]
+                        option = PackageOption.objects.create(
+                            package=pkg,
+                            name=fake.word().capitalize() + " Option",
+                            options_string=", ".join(options),
+                        )
+                        option.set_options_from_string(option.options_string)
+
+            # Registration & athletes
             for race in races:
-                if race.id not in assigned_races:
-                    random.choice(packages).races.add(race)
-                    assigned_races.add(race.id)
-
-            for race_index, race in enumerate(races):
-                self.stdout.write(
-                    f"→ Creating athletes for race {race_index + 1}/{len(races)}: {race.name}"  # noqa: E501
-                )  # noqa: E501
-                athletes_needed = 5 if debug_mode else random.randint(20, 40)
+                num_athletes = 5 if debug else random.randint(20, 40)
                 created = 0
-
-                while created < athletes_needed:
-                    num_athletes = min(random.randint(1, 4), athletes_needed - created)
-
-                    registration = Registration.objects.create(
+                while created < num_athletes:
+                    reg = Registration.objects.create(
                         event=event,
                         status="completed",
                         payment_status="paid",
-                        total_amount=0.00,
+                        agreed_to_terms=event.terms,
+                        agrees_to_terms=True,
+                        created_at=make_aware(
+                            fake.date_time_between(start_date="-60d", end_date="now")
+                        ),
                     )
-                    registration.created_at = make_aware(
-                        fake.date_time_between(start_date="-120d", end_date="now")
-                    )
-                    registration.save(update_fields=["created_at"])
 
-                    for _ in range(num_athletes):
-                        valid_packages = [p for p in packages if race in p.races.all()]
-                        if not valid_packages:
-                            self.stdout.write(
-                                self.style.WARNING(
-                                    f"⚠️ No valid packages for race: {race.name}"
-                                )
-                            )
-                            break
-
-                        chosen_package = random.choice(valid_packages)
-                        selected_options = {
+                    n = min(random.randint(1, 4), num_athletes - created)
+                    for _ in range(n):
+                        valid_packages = race.packages.all()
+                        if not valid_packages.exists():
+                            continue
+                        pkg = random.choice(valid_packages)
+                        options = {
                             opt.name: [random.choice(opt.options_json)]
-                            for opt in chosen_package.packageoption_set.all()
+                            for opt in pkg.packageoption_set.all()
                             if opt.options_json
                         }
 
-                        athlete = Athlete.objects.create(  # noqa: F841
-                            registration=registration,
+                        role = None
+                        if race.requires_roles():
+                            allowed = race.get_allowed_roles()
+                            role = random.choice(list(allowed)) if allowed else None
+
+                        special_price = (
+                            random.choice(list(race.special_prices.all()))
+                            if race.special_prices.exists() and random.random() < 0.4
+                            else None
+                        )
+
+                        Athlete.objects.create(
+                            registration=reg,
                             race=race,
-                            package=chosen_package,
-                            pickup_point=random.choice(pickups),
+                            package=pkg,
+                            pickup_point=random.choice(pickup_points),
                             first_name=fake.first_name(),
                             last_name=fake.last_name(),
-                            team=fake.word().capitalize() + " Runners",
+                            team=fake.word().capitalize() + " Club",
                             email=fake.unique.email(),
                             phone=fake.phone_number(),
                             sex=random.choice(["Male", "Female"]),
-                            dob=fake.date_of_birth(minimum_age=18, maximum_age=55),
+                            dob=fake.date_of_birth(minimum_age=16, maximum_age=55),
                             hometown=fake.city(),
-                            agreed_to_terms=terms,
-                            agrees_to_terms=True,
-                            selected_options=selected_options,
+                            selected_options=options,
+                            role=role,
+                            special_price=special_price,
                         )
 
-                        registration.total_amount += float(chosen_package.price)
-                        created += 1
-
-                    registration.save(update_fields=["total_amount"])
-
-                    payment = Payment.objects.create(
+                    reg.update_total_amount()
+                    Payment.objects.create(
                         variant="dummy",
-                        description=f"Registration #{registration.id}",
-                        total=Decimal(registration.total_amount),
+                        total=Decimal(reg.total_amount),
                         currency="EUR",
-                        billing_email=registration.athletes.first().email
-                        if registration.athletes.exists()
-                        else fake.email(),
+                        description=f"Reg #{reg.id}",
+                        billing_email=reg.athletes.first().email,
                         status="confirmed",
                         captured_amount=Decimal("0.00"),
-                        extra_data=json.dumps({"registration_id": registration.id}),
+                        extra_data=json.dumps({"registration_id": reg.id}),
                     )
-                    registration.payment = payment
-                    registration.save()
 
-        self.stdout.write(self.style.SUCCESS("✅ Seeder completed successfully."))
+                    created += n
+
+        self.stdout.write(self.style.SUCCESS("✅ Dummy data successfully created."))
